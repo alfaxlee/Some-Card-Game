@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>某卡牌遊戲</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="home-screen">
+    <div class="card-glow" aria-hidden="true"></div>
+    <section class="title-area screen-panel active" id="homePanel" aria-label="遊戲首頁">
+      <p class="eyebrow">CARD BATTLE</p>
+      <h1>某卡牌遊戲</h1>
+      <button class="start-button" type="button" id="startButton">START</button>
+      <button class="secondary-button" type="button" id="viewCardsButton">檢視卡牌</button>
+    </section>
+
+    <section class="title-area screen-panel difficulty-area" id="difficultyPanel" aria-label="選擇難度" hidden>
+      <p class="eyebrow">SELECT DIFFICULTY</p>
+      <h1 class="difficulty-title">選擇難度</h1>
+      <div class="difficulty-grid">
+        <button class="difficulty-button" type="button" data-ai="低">簡單</button>
+        <button class="difficulty-button" type="button" data-ai="普通">普通</button>
+        <button class="difficulty-button" type="button" data-ai="高">困難</button>
+        <button class="difficulty-button" type="button" data-ai="未知">像被騙一樣</button>
+      </div>
+      <p class="status-text" id="difficultyStatus" aria-live="polite"></p>
+    </section>
+
+    <section class="title-area screen-panel game-area" id="gamePanel" aria-label="遊戲畫面" hidden>
+      <p class="eyebrow" id="aiStatus">CPU IQ</p>
+      <div class="battle-table">
+        <section class="battle-zone opponent-hand-zone" aria-label="對手手牌">
+          <h2>對手手牌</h2>
+          <div class="hand-row opponent-hand-row" id="opponentHand">
+            <div class="empty-slot" id="opponentEmptyHandSlot">對手手牌是空的</div>
+          </div>
+        </section>
+
+        <section class="battle-zone opponent-field-zone" aria-label="對手戰鬥牌">
+          <h2>對手戰鬥牌</h2>
+          <div class="active-card-slot" id="opponentFieldSlot">
+            <div class="empty-slot" id="opponentEmptyFieldSlot">對手尚未打出卡牌</div>
+            <article class="battle-card" id="opponentCardPanel" aria-label="對手卡牌資料" hidden>
+              <h2 id="opponentCardName">雷切小弟弟</h2>
+              <dl class="card-stats">
+                <div>
+                  <dt>迪克拉</dt>
+                  <dd id="opponentDikra">999999999999</dd>
+                </div>
+                <div>
+                  <dt>查克拉</dt>
+                  <dd id="opponentChakra">400</dd>
+                </div>
+                <div>
+                  <dt>血量</dt>
+                  <dd id="opponentHealth">5000</dd>
+                </div>
+              </dl>
+              <div class="move-list" id="opponentMoveList"></div>
+              <p class="passive-text" id="opponentPassive">passive：噁心能量條集滿可以直接把對方拿掉。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="battle-zone player-field-zone" aria-label="我方戰鬥區">
+          <h2>我方戰鬥牌</h2>
+          <div class="active-card-slot" id="playerFieldSlot">
+            <div class="empty-slot" id="emptyFieldSlot">尚未打出卡牌</div>
+            <article class="battle-card" id="cardPanel" aria-label="卡牌資料" hidden>
+              <div class="energy-meter" id="energyMeter" aria-label="噁心能量條">
+                <span class="energy-label">噁心能量條</span>
+                <div class="energy-track">
+                  <div class="energy-fill" id="energyFill"></div>
+                </div>
+                <span class="energy-value" id="energyValue">0%</span>
+              </div>
+              <h2 id="cardName">雷切小弟弟</h2>
+              <dl class="card-stats">
+                <div>
+                  <dt>迪克拉</dt>
+                  <dd id="cardDikra">999999999999</dd>
+                </div>
+                <div>
+                  <dt>查克拉</dt>
+                  <dd id="cardChakra">400</dd>
+                </div>
+                <div>
+                  <dt>血量</dt>
+                  <dd id="cardHealth">10000</dd>
+                </div>
+              </dl>
+              <div class="move-list" id="moveList"></div>
+              <p class="passive-text" id="cardPassive">passive：噁心能量條集滿可以直接把對方拿掉。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="battle-zone player-hand-zone" aria-label="我的手牌">
+          <div class="hand-header">
+            <h2>我方手牌</h2>
+            <button class="start-button draw-button" type="button" id="drawButton">抽牌</button>
+          </div>
+          <div class="hand-row" id="playerHand">
+            <div class="empty-slot" id="emptyHandSlot">手牌是空的</div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="title-area screen-panel card-library-area" id="cardLibraryPanel" aria-label="檢視卡牌" hidden>
+      <p class="eyebrow">CARD LIBRARY</p>
+      <h1 class="difficulty-title">檢視卡牌</h1>
+      <div class="card-viewer">
+        <article class="battle-card" id="libraryCardPanel" aria-label="卡牌資料">
+          <div class="energy-meter" id="libraryEnergyMeter" aria-label="噁心能量條">
+            <span class="energy-label">噁心能量條</span>
+            <div class="energy-track">
+              <div class="energy-fill preview-energy-fill"></div>
+            </div>
+            <span class="energy-value">0%</span>
+          </div>
+          <h2 id="libraryCardName"></h2>
+          <dl class="card-stats">
+            <div>
+              <dt>迪克拉</dt>
+              <dd id="libraryDikra"></dd>
+            </div>
+            <div>
+              <dt>查克拉</dt>
+              <dd id="libraryChakra"></dd>
+            </div>
+            <div>
+              <dt>血量</dt>
+              <dd id="libraryHealth"></dd>
+            </div>
+          </dl>
+          <div class="move-list" id="libraryMoveList"></div>
+          <p class="passive-text" id="libraryPassive"></p>
+        </article>
+        <button class="arrow-button next-card-button" type="button" id="nextCardButton" aria-label="下一張卡牌">›</button>
+      </div>
+      <button class="secondary-button" type="button" id="backHomeButton">回首頁</button>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
