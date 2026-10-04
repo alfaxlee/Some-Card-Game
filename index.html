@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>某卡牌遊戲</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <main class="home-screen">
     <div class="card-glow" aria-hidden="true"></div>
@@ -13,7 +15,7 @@
       <p class="eyebrow">CARD BATTLE</p>
       <h1>某卡牌遊戲</h1>
       <button class="start-button" type="button" id="startButton">START</button>
-      <button class="secondary-button" type="button" id="viewCardsButton">檢視卡牌</button>
+      <button class="secondary-button" type="button" id="viewCardsButton">設計卡牌</button>
     </section>
 
     <section class="title-area screen-panel difficulty-area" id="difficultyPanel" aria-label="選擇難度" hidden>
@@ -29,77 +31,109 @@
     </section>
 
     <section class="title-area screen-panel game-area" id="gamePanel" aria-label="遊戲畫面" hidden>
-      <p class="eyebrow" id="aiStatus">CPU IQ</p>
+      <div class="game-top-bar">
+        <p class="eyebrow" id="aiStatus">CPU IQ</p>
+        <div class="turn-badge" id="turnIndicator">準備出牌</div>
+      </div>
+
       <div class="battle-table">
         <section class="battle-zone opponent-hand-zone" aria-label="對手手牌">
-          <h2>對手手牌</h2>
+          <h2>對手手牌 <span class="deck-count" id="opponentDeckCount"></span></h2>
           <div class="hand-row opponent-hand-row" id="opponentHand">
             <div class="empty-slot" id="opponentEmptyHandSlot">對手手牌是空的</div>
           </div>
         </section>
 
-        <section class="battle-zone opponent-field-zone" aria-label="對手戰鬥牌">
-          <h2>對手戰鬥牌</h2>
-          <div class="active-card-slot" id="opponentFieldSlot">
-            <div class="empty-slot" id="opponentEmptyFieldSlot">對手尚未打出卡牌</div>
-            <article class="battle-card" id="opponentCardPanel" aria-label="對手卡牌資料" hidden>
-              <h2 id="opponentCardName">雷切小弟弟</h2>
-              <dl class="card-stats">
-                <div>
-                  <dt>迪克拉</dt>
-                  <dd id="opponentDikra">999999999999</dd>
+        <!-- 戰鬥卡牌並排同一列區域 -->
+        <div class="battle-fields-row">
+          <section class="battle-zone battle-field-column opponent-field-zone" aria-label="對手戰鬥牌">
+            <div class="field-header">
+              <h2>對手戰鬥牌</h2>
+              <span class="buff-tag opponent-buff" id="opponentBuffTag"></span>
+            </div>
+            <div class="active-card-slot" id="opponentFieldSlot">
+              <div class="empty-slot" id="opponentEmptyFieldSlot">對手尚未打出卡牌</div>
+              <article class="battle-card mini-battle-card" id="opponentCardPanel" aria-label="對手卡牌資料" hidden>
+                <div class="card-title-row">
+                  <h2 id="opponentCardName">雷切小弟弟</h2>
+                  <div class="energy-meter" id="opponentEnergyMeter" aria-label="對手噁心能量條" hidden>
+                    <span class="energy-label">噁心能量條</span>
+                    <div class="energy-track">
+                      <div class="energy-fill" id="opponentEnergyFill"></div>
+                    </div>
+                    <span class="energy-value" id="opponentEnergyValue">0%</span>
+                  </div>
                 </div>
-                <div>
-                  <dt>查克拉</dt>
-                  <dd id="opponentChakra">400</dd>
-                </div>
-                <div>
-                  <dt>血量</dt>
-                  <dd id="opponentHealth">5000</dd>
-                </div>
-              </dl>
-              <div class="move-list" id="opponentMoveList"></div>
-              <p class="passive-text" id="opponentPassive">passive：噁心能量條集滿可以直接把對方拿掉。</p>
-            </article>
-          </div>
-        </section>
+                <dl class="card-stats">
+                  <div>
+                    <dt>迪克拉</dt>
+                    <dd id="opponentDikra">999999999999</dd>
+                  </div>
+                  <div>
+                    <dt>查克拉</dt>
+                    <dd id="opponentChakra">400</dd>
+                  </div>
+                  <div>
+                    <dt>防禦</dt>
+                    <dd id="opponentDefense">0</dd>
+                  </div>
+                  <div>
+                    <dt>血量</dt>
+                    <dd id="opponentHealth">5000</dd>
+                  </div>
+                </dl>
+                <div class="move-list" id="opponentMoveList"></div>
+                <p class="passive-text" id="opponentPassive">passive：噁心能量條集滿可以直接把對方拿掉。</p>
+              </article>
+            </div>
+          </section>
 
-        <section class="battle-zone player-field-zone" aria-label="我方戰鬥區">
-          <h2>我方戰鬥牌</h2>
-          <div class="active-card-slot" id="playerFieldSlot">
-            <div class="empty-slot" id="emptyFieldSlot">尚未打出卡牌</div>
-            <article class="battle-card" id="cardPanel" aria-label="卡牌資料" hidden>
-              <div class="energy-meter" id="energyMeter" aria-label="噁心能量條">
-                <span class="energy-label">噁心能量條</span>
-                <div class="energy-track">
-                  <div class="energy-fill" id="energyFill"></div>
+          <section class="battle-zone battle-field-column player-field-zone" aria-label="我方戰鬥區">
+            <div class="field-header">
+              <h2>我方戰鬥牌</h2>
+              <span class="buff-tag player-buff" id="playerBuffTag"></span>
+            </div>
+            <div class="active-card-slot" id="playerFieldSlot">
+              <div class="empty-slot" id="emptyFieldSlot">尚未打出卡牌</div>
+              <article class="battle-card mini-battle-card" id="cardPanel" aria-label="卡牌資料" hidden>
+                <div class="card-title-row">
+                  <h2 id="cardName">雷切小弟弟</h2>
+                  <div class="energy-meter" id="energyMeter" aria-label="噁心能量條">
+                    <span class="energy-label">噁心能量條</span>
+                    <div class="energy-track">
+                      <div class="energy-fill" id="energyFill"></div>
+                    </div>
+                    <span class="energy-value" id="energyValue">0%</span>
+                  </div>
                 </div>
-                <span class="energy-value" id="energyValue">0%</span>
-              </div>
-              <h2 id="cardName">雷切小弟弟</h2>
-              <dl class="card-stats">
-                <div>
-                  <dt>迪克拉</dt>
-                  <dd id="cardDikra">999999999999</dd>
-                </div>
-                <div>
-                  <dt>查克拉</dt>
-                  <dd id="cardChakra">400</dd>
-                </div>
-                <div>
-                  <dt>血量</dt>
-                  <dd id="cardHealth">10000</dd>
-                </div>
-              </dl>
-              <div class="move-list" id="moveList"></div>
-              <p class="passive-text" id="cardPassive">passive：噁心能量條集滿可以直接把對方拿掉。</p>
-            </article>
-          </div>
-        </section>
+                <dl class="card-stats">
+                  <div>
+                    <dt>迪克拉</dt>
+                    <dd id="cardDikra">999999999999</dd>
+                  </div>
+                  <div>
+                    <dt>查克拉</dt>
+                    <dd id="cardChakra">400</dd>
+                  </div>
+                  <div>
+                    <dt>防禦</dt>
+                    <dd id="playerDefense">0</dd>
+                  </div>
+                  <div>
+                    <dt>血量</dt>
+                    <dd id="cardHealth">10000</dd>
+                  </div>
+                </dl>
+                <div class="move-list" id="moveList"></div>
+                <p class="passive-text" id="cardPassive">passive：噁心能量條集滿可以直接把對方拿掉。</p>
+              </article>
+            </div>
+          </section>
+        </div>
 
         <section class="battle-zone player-hand-zone" aria-label="我的手牌">
           <div class="hand-header">
-            <h2>我方手牌</h2>
+            <h2>我方手牌 <span class="deck-count" id="playerDeckCount"></span></h2>
             <button class="start-button draw-button" type="button" id="drawButton">抽牌</button>
           </div>
           <div class="hand-row" id="playerHand">
@@ -107,44 +141,145 @@
           </div>
         </section>
       </div>
+
+      <!-- 戰鬥結束彈窗（不使用上方提示訊息來傳達輸贏） -->
+      <div class="battle-modal" id="battleResultModal" hidden>
+        <div class="modal-content">
+          <p class="eyebrow" id="resultEyebrow">RESULT</p>
+          <h2 class="modal-title" id="resultTitle">戰鬥結束</h2>
+          <p class="modal-desc" id="resultDesc">本局勝負已定</p>
+          <div class="modal-actions">
+            <button class="start-button modal-btn" type="button" id="playAgainButton">再玩一局</button>
+            <button class="secondary-button modal-btn" type="button" id="gameExitButton">回難度選擇</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 領域展開選擇彈窗 (雷切小弟弟 V招) -->
+      <div class="battle-modal" id="domainSelectModal" hidden>
+        <div class="modal-content domain-modal-content">
+          <p class="eyebrow">DOMAIN EXPANSION</p>
+          <h2 class="modal-title" style="color: #ff55a3;">領域展開</h2>
+          <p class="modal-desc">請選擇你要展開的領域形態，發動極限抹殺：</p>
+          <div class="domain-grid">
+            <button type="button" class="domain-btn" data-domain="做死">🔥 做死</button>
+            <button type="button" class="domain-btn" data-domain="傳說對接">⚡ 傳說對接</button>
+            <button type="button" class="domain-btn" data-domain="視獄偽境">👁️ 視獄偽境</button>
+            <button type="button" class="domain-btn" data-domain="真Dixx不斷">⚔️ 真Dixx不斷</button>
+            <button type="button" class="domain-btn" data-domain="迪克崩壞">🌌 迪克崩壞</button>
+            <button type="button" class="domain-btn" data-domain="(Censored)">🚫 (Censored)</button>
+          </div>
+          <div class="modal-actions" style="margin-top: 0.5rem;">
+            <button type="button" class="secondary-button modal-btn" id="domainCancelBtn">取消</button>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <section class="title-area screen-panel card-library-area" id="cardLibraryPanel" aria-label="檢視卡牌" hidden>
-      <p class="eyebrow">CARD LIBRARY</p>
-      <h1 class="difficulty-title">檢視卡牌</h1>
-      <div class="card-viewer">
-        <article class="battle-card" id="libraryCardPanel" aria-label="卡牌資料">
-          <div class="energy-meter" id="libraryEnergyMeter" aria-label="噁心能量條">
-            <span class="energy-label">噁心能量條</span>
-            <div class="energy-track">
-              <div class="energy-fill preview-energy-fill"></div>
+    <!-- 設計卡牌面板 -->
+    <section class="title-area screen-panel card-editor-area" id="cardEditorPanel" aria-label="設計卡牌" hidden>
+      <p class="eyebrow">CARD WORKSHOP</p>
+      <h1 class="difficulty-title">設計卡牌</h1>
+      <p class="editor-subtitle">在此自由修改或新增卡牌，儲存後即可直接在對戰中生效！</p>
+
+      <div class="editor-layout">
+        <!-- 卡牌選擇 / 快速切換 -->
+        <div class="editor-card-selector">
+          <label for="cardSelectDropdown">選擇卡牌編輯：</label>
+          <select id="cardSelectDropdown" class="editor-select"></select>
+          <button class="action-btn" type="button" id="newCardBtn">+ 建立新卡牌</button>
+          <button class="action-btn danger-btn" type="button" id="resetCardsBtn">重設回預設</button>
+        </div>
+
+        <div class="editor-workspace">
+          <!-- 編輯表單 -->
+          <form class="card-edit-form" id="cardEditForm" onsubmit="return false;">
+            <div class="form-section">
+              <h3>基本屬性</h3>
+              <div class="form-grid">
+                <div class="form-field">
+                  <label for="editCardName">名稱</label>
+                  <input type="text" id="editCardName" class="editor-input" placeholder="卡牌名稱" required />
+                </div>
+                <div class="form-field">
+                  <label for="editCardDikra">迪克拉</label>
+                  <input type="text" id="editCardDikra" class="editor-input" placeholder="例如: 999999999999" required />
+                </div>
+                <div class="form-field">
+                  <label for="editCardChakra">查克拉</label>
+                  <input type="text" id="editCardChakra" class="editor-input" placeholder="例如: 400 或 無限" required />
+                </div>
+                <div class="form-field">
+                  <label for="editCardHealth">血量</label>
+                  <input type="text" id="editCardHealth" class="editor-input" placeholder="例如: 10000" required />
+                </div>
+              </div>
             </div>
-            <span class="energy-value">0%</span>
+
+            <!-- 攻擊列表 -->
+            <div class="form-section">
+              <div class="section-header">
+                <h3>攻擊招式</h3>
+                <button class="add-move-btn" type="button" id="addMoveBtn">+ 新增攻擊招式</button>
+              </div>
+              <div class="moves-edit-container" id="movesEditContainer">
+                <!-- 動態注入招式卡片 -->
+              </div>
+            </div>
+
+            <!-- 卡牌被動說明 (選填) -->
+            <div class="form-section">
+              <h3>卡牌被動說明 (Passive)</h3>
+              <div class="form-field">
+                <textarea id="editCardPassive" class="editor-textarea" placeholder="自訂被動技能說明（選填）"></textarea>
+              </div>
+            </div>
+
+            <div class="editor-actions">
+              <button class="start-button save-card-button" type="button" id="saveCardButton">儲存卡牌</button>
+              <button class="secondary-button" type="button" id="backHomeButton">回首頁</button>
+            </div>
+            <p class="status-text" id="editorStatusText"></p>
+          </form>
+
+          <!-- 即時預覽卡牌 -->
+          <div class="editor-preview-column">
+            <h3>即時卡牌預覽</h3>
+            <article class="battle-card preview-card" id="editorPreviewCard">
+              <div class="card-title-row">
+                <h2 id="previewCardName">卡牌名稱</h2>
+                <div class="energy-meter" id="previewEnergyMeter" hidden>
+                  <span class="energy-label">噁心能量條</span>
+                  <div class="energy-track">
+                    <div class="energy-fill preview-energy-fill"></div>
+                  </div>
+                  <span class="energy-value">0%</span>
+                </div>
+              </div>
+              <dl class="card-stats">
+                <div>
+                  <dt>迪克拉</dt>
+                  <dd id="previewDikra">-</dd>
+                </div>
+                <div>
+                  <dt>查克拉</dt>
+                  <dd id="previewChakra">-</dd>
+                </div>
+                <div>
+                  <dt>血量</dt>
+                  <dd id="previewHealth">-</dd>
+                </div>
+              </dl>
+              <div class="move-list" id="previewMoveList"></div>
+              <p class="passive-text" id="previewPassive"></p>
+            </article>
           </div>
-          <h2 id="libraryCardName"></h2>
-          <dl class="card-stats">
-            <div>
-              <dt>迪克拉</dt>
-              <dd id="libraryDikra"></dd>
-            </div>
-            <div>
-              <dt>查克拉</dt>
-              <dd id="libraryChakra"></dd>
-            </div>
-            <div>
-              <dt>血量</dt>
-              <dd id="libraryHealth"></dd>
-            </div>
-          </dl>
-          <div class="move-list" id="libraryMoveList"></div>
-          <p class="passive-text" id="libraryPassive"></p>
-        </article>
-        <button class="arrow-button next-card-button" type="button" id="nextCardButton" aria-label="下一張卡牌">›</button>
+        </div>
       </div>
-      <button class="secondary-button" type="button" id="backHomeButton">回首頁</button>
     </section>
   </main>
 
   <script src="script.js"></script>
 </body>
+
 </html>
