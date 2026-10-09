@@ -209,6 +209,20 @@ const defaultCards = [
       },
     ],
   },
+  {
+    name: "林走狗",
+    dikra: "1000000",
+    chakra: "500",
+    health: "1050",
+    hasEnergyMeter: false,
+    passive: "血量跟狗一樣：身板脆弱如狗，但對姜敦硯具備絕對特攻，並能隨時召喚強大的Driver團長前來救援！",
+    moves: [
+      { key: "M1", name: "吠", damage: "800", energy: 10, cooldown: 0, unlockAfterTurns: 0, specialMechanic: "普通攻擊" },
+      { key: "Z", name: "反掰開", damage: "1200", energy: 25, cooldown: 2, specialMechanic: "若對手是姜敦硯必殺" },
+      { key: "X", name: "往你嘴裡塞迪克", damage: "500", cooldown: 2, energy: 10, specialMechanic: "對方停止出招一局" },
+      { key: "C", name: "召喚團長", damage: "500", cooldown: 1, energy: 10, specialMechanic: "將Driver團長加到自己備戰區(不論團長是生是死是對方還是我的)" },
+    ],
+  },
 ];
 
 // 規範化卡牌屬性與特殊機制解析（尊重使用者自訂內容，不隨意覆蓋）
@@ -262,6 +276,15 @@ function normalizeCard(card) {
           m.unlockAfterTurns = 0;
         }
       });
+    }
+  }
+
+  // 林走狗 機制規範化
+  if (card.name && card.name.includes("林走狗")) {
+    card.name = "林走狗";
+    card.health = "1050";
+    if (!card.passive) {
+      card.passive = "血量跟狗一樣：身板脆弱如狗，但對姜敦硯具備絕對特攻，並能隨時召喚強大的Driver團長前來救援！";
     }
   }
 
@@ -1105,8 +1128,42 @@ function useMove(selectedMove) {
     }
   }
 
-  // 判斷是否為「切換人格騙術色誘」招式（對手停止發招一局，施招者連續出招）
-  const isCharm = selectedMove.name === "切換人格騙術色誘" || (selectedMove.specialMechanic && (selectedMove.specialMechanic.includes("停止") || selectedMove.specialMechanic.includes("色誘")));
+  // 林走狗 特殊招式機制 (玩家施展)
+  const isPlayerLin = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("林走狗");
+  if (isPlayerLin || (selectedMove.specialMechanic && (selectedMove.specialMechanic.includes("姜敦硯必殺") || selectedMove.specialMechanic.includes("Driver團長")))) {
+    if (selectedMove.name === "反掰開" || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("姜敦硯必殺"))) {
+      const isOppGeilao = opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"));
+      if (isOppGeilao) {
+        damage = 999999999999999;
+        triggerScreenShake();
+        updateTurnBadge("🐕💥【林走狗】施展【反掰開】！對手正是姜敦硯！觸發特攻絕對必殺！直接將姜敦硯瞬間抹殺！");
+      } else {
+        updateTurnBadge(`🐕【林走狗】施展【反掰開】！造成 ${damage} 傷害！（對手不是姜敦硯，未觸發必殺）`);
+      }
+    } else if (selectedMove.name === "召喚團長" || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("Driver團長"))) {
+      // 奪取或加入 Driver 團長至我方手牌備戰區
+      const oppDriverIdx = opponentHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+      if (oppDriverIdx !== -1) {
+        opponentHandCards.splice(oppDriverIdx, 1);
+      }
+      const driverDef = defaultCards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+      if (driverDef) {
+        const summonedDriver = JSON.parse(JSON.stringify(driverDef));
+        summonedDriver.health = String(summonedDriver.health || "19999");
+        playerHandCards.push(summonedDriver);
+        renderHand();
+        renderOpponentHand();
+        updateDeckCounts();
+        triggerScreenShake();
+        updateTurnBadge("🐕💪【林走狗】大聲吠叫召喚！八塊腹肌Driver團團長（血量 19999）響應號召，強勢加入我方備戰區！造成 500 傷害！");
+      }
+    }
+  }
+
+  // 判斷是否為「切換人格騙術色誘」或「往你嘴裡塞迪克」招式（對手停止發招一局，施招者連續出招）
+  const isCharm = selectedMove.name === "切換人格騙術色誘" ||
+    selectedMove.name === "往你嘴裡塞迪克" ||
+    (selectedMove.specialMechanic && (selectedMove.specialMechanic.includes("停止") || selectedMove.specialMechanic.includes("色誘")));
 
   if (isCharm) {
     applyDamage("opponent", damage, playerStatus, opponentStatus);
@@ -1123,9 +1180,12 @@ function useMove(selectedMove) {
       return;
     }
 
-    // Driver團長自己發招後連續行動！跳過對手回合，我方連續出招！
     currentTurn = "player";
-    updateTurnBadge("💖【Driver團長】騙術色誘成功！對手停止發招一局，我方連續出招！");
+    if (selectedMove.name === "往你嘴裡塞迪克") {
+      updateTurnBadge("🐕🌭【林走狗】往對手嘴裡塞迪克！造成 500 傷害！對手被塞滿無法出招一局，我方連續出招！");
+    } else {
+      updateTurnBadge("💖【Driver團長】騙術色誘成功！對手停止發招一局，我方連續出招！");
+    }
     renderMoves();
     renderOpponentMoves();
     return;
@@ -1227,7 +1287,10 @@ function opponentTurn() {
     if (!move && opponentHP < opponentMaxHP * 0.4) {
       move = availableMoves.find((m) => m.name === "後撤步雷切" || m.name === "召喚八塊腹肌" || m.name === "快速下樓梯招，團長幫忙");
     }
-    if (!move) move = availableMoves.find((m) => m.name === "切換人格騙術色誘");
+    const isTargetGeilao = activePlayerCard && (activePlayerCard.name.includes("給佬") || activePlayerCard.name.includes("姜敦硯"));
+    if (!move && isTargetGeilao) move = availableMoves.find((m) => m.name === "反掰開");
+    if (!move) move = availableMoves.find((m) => m.name === "切換人格騙術色誘" || m.name === "往你嘴裡塞迪克");
+    if (!move && opponentHandCards.length === 0) move = availableMoves.find((m) => m.name === "召喚團長");
     if (!move) move = availableMoves.sort((a, b) => parseDamageValue(b.damage) - parseDamageValue(a.damage))[0];
   }
 
@@ -1332,7 +1395,9 @@ function opponentTurn() {
       }
     }
 
-    const isOppCharm = move.name === "切換人格騙術色誘" || (move.specialMechanic && (move.specialMechanic.includes("停止") || move.specialMechanic.includes("色誘")));
+    const isOppCharm = move.name === "切換人格騙術色誘" ||
+      move.name === "往你嘴裡塞迪克" ||
+      (move.specialMechanic && (move.specialMechanic.includes("停止") || move.specialMechanic.includes("色誘")));
 
     if (move.name === "後撤步雷切") opponentStatus.defense += 1000;
     if (move.name === "召喚八塊腹肌") {
@@ -1348,6 +1413,38 @@ function opponentTurn() {
       }
       if (sm.includes("減半")) {
         playerStatus.damageHalf = true;
+      }
+    }
+
+    // 電腦為林走狗時的招式機制
+    const isOppLin = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("林走狗");
+    if (isOppLin || (move.specialMechanic && (move.specialMechanic.includes("姜敦硯必殺") || move.specialMechanic.includes("Driver團長")))) {
+      if (move.name === "反掰開" || (move.specialMechanic && move.specialMechanic.includes("姜敦硯必殺"))) {
+        const isTargetGeilao = activePlayerCard && (activePlayerCard.name.includes("給佬") || activePlayerCard.name.includes("姜敦硯"));
+        if (isTargetGeilao) {
+          damage = 999999999999999;
+          triggerScreenShake();
+          updateTurnBadge("🐕💥 對手【林走狗】施展【反掰開】！我方正是姜敦硯！觸發特攻絕對必殺！直接將姜敦硯瞬間抹殺！");
+        } else {
+          updateTurnBadge(`🐕 對手【林走狗】施展【反掰開】！造成 ${damage} 傷害！（可惜我方不是姜敦硯，未觸發必殺）`);
+        }
+      } else if (move.name === "召喚團長" || (move.specialMechanic && move.specialMechanic.includes("Driver團長"))) {
+        // 從我方手牌搶奪或召喚Driver團長到敵方手牌
+        const pDriverIdx = playerHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+        if (pDriverIdx !== -1) {
+          playerHandCards.splice(pDriverIdx, 1);
+        }
+        const driverDef = defaultCards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+        if (driverDef) {
+          const summonedDriver = JSON.parse(JSON.stringify(driverDef));
+          summonedDriver.health = String(summonedDriver.health || "19999");
+          opponentHandCards.push(summonedDriver);
+          renderHand();
+          renderOpponentHand();
+          updateDeckCounts();
+          triggerScreenShake();
+          updateTurnBadge("🐕💪 對手【林走狗】大聲吠叫召喚！八塊腹肌Driver團團長（血量 19999）加入敵方備戰區！造成 500 傷害！");
+        }
       }
     }
 
@@ -1409,7 +1506,7 @@ function opponentTurn() {
       return;
     }
 
-    // 若電腦使用色誘，電腦自己也要發招（連續追擊），跳過玩家回合！
+    // 若電腦使用色誘或塞迪克，電腦自己也要發招（連續追擊），跳過玩家回合！
     if (isOppCharm) {
       if (opponentGlitchTurns > 0) {
         opponentGlitchTurns--;
@@ -1418,7 +1515,11 @@ function opponentTurn() {
       move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 2;
       decrementCooldowns();
       currentTurn = "opponent";
-      updateTurnBadge("💖 對手【Driver團長】騙術色誘成功！我方停止發招一局，對手連續追擊！");
+      if (move.name === "往你嘴裡塞迪克") {
+        updateTurnBadge("🐕🌭 對手【林走狗】往我方嘴裡塞迪克！造成 500 傷害！我方被塞滿無法出招一局，對手連續追擊！");
+      } else {
+        updateTurnBadge("💖 對手【Driver團長】騙術色誘成功！我方停止發招一局，對手連續追擊！");
+      }
       renderMoves();
       renderOpponentMoves();
       setTimeout(opponentTurn, 1000);

@@ -1167,18 +1167,37 @@ body.screen-noise-active::after {
   pointer-events: none;
   z-index: 9999;
   background: repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08) 0, rgba(0, 0, 0, 0.25) 2px, transparent 4px),
-              linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%);
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%);
   background-size: 100% 100%, 100% 4px;
   animation: static-noise-flicker 0.1s steps(2) infinite;
   opacity: 0.85;
 }
 
 @keyframes static-noise-flicker {
-  0% { transform: translate(0, 0); filter: contrast(180%) brightness(1.2); }
-  25% { transform: translate(-3px, 2px); filter: contrast(220%) brightness(0.9); }
-  50% { transform: translate(3px, -2px); filter: contrast(190%) brightness(1.3); }
-  75% { transform: translate(-2px, -3px); filter: contrast(210%) brightness(1.1); }
-  100% { transform: translate(1px, 2px); filter: contrast(180%) brightness(1.2); }
+  0% {
+    transform: translate(0, 0);
+    filter: contrast(180%) brightness(1.2);
+  }
+
+  25% {
+    transform: translate(-3px, 2px);
+    filter: contrast(220%) brightness(0.9);
+  }
+
+  50% {
+    transform: translate(3px, -2px);
+    filter: contrast(190%) brightness(1.3);
+  }
+
+  75% {
+    transform: translate(-2px, -3px);
+    filter: contrast(210%) brightness(1.1);
+  }
+
+  100% {
+    transform: translate(1px, 2px);
+    filter: contrast(180%) brightness(1.2);
+  }
 }
 
 .card-noise-interference {
@@ -1187,9 +1206,17 @@ body.screen-noise-active::after {
 }
 
 @keyframes card-noise-jitter {
-  0% { transform: translate(0, 0); }
-  50% { transform: translate(1px, -1px) skewX(0.5deg); }
-  100% { transform: translate(-1px, 1px) skewX(-0.5deg); }
+  0% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(1px, -1px) skewX(0.5deg);
+  }
+
+  100% {
+    transform: translate(-1px, 1px) skewX(-0.5deg);
+  }
 }
 
 .modal-title {
