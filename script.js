@@ -68,6 +68,13 @@ let playerMaxHP = 0;
 let opponentMaxHP = 0;
 let playerStatus = { defense: 0, damageHalf: false, stunned: false };
 let opponentStatus = { defense: 0, damageHalf: false, stunned: false };
+let playerCardDamageMult = 1; // 當前卡牌傷害倍率 (Z/X招削弱)
+let opponentCardDamageMult = 1; // 對手當前卡牌傷害倍率 (Z/X招削弱)
+let playerGlobalDamageMult = 1; // 全局傷害倍率 (姜敦硯 V招 領域展開 1/4)
+let opponentGlobalDamageMult = 1; // 對手全局傷害倍率 (姜敦硯 V招 領域展開 1/4)
+let playerGeilaoApproached = false; // 我方姜敦硯是否已使用 M1 靠近對方
+let opponentGeilaoApproached = false; // 對手姜敦硯是否已使用 M1 靠近對方
+let isNoiseActive = false; // 是否處於畫面雜訊干擾中
 let playerGlitchTurns = 0; // 我方卡牌與招式亂碼剩餘回合數 (一局)
 let opponentGlitchTurns = 0; // 對手卡牌與招式亂碼剩餘回合數 (一局)
 let currentTurn = "player"; // "player" or "opponent"
@@ -124,6 +131,84 @@ const defaultCards = [
       { key: "F招", name: "超級自爆！！！！", energy: 100, cooldown: 5, unlockAfterTurns: 7, damage: "無限", specialMechanic: "開局7回合後解鎖" },
     ],
   },
+  {
+    name: "陳豆豆",
+    dikra: "0",
+    chakra: "怒氣",
+    health: "12000",
+    hasEnergyMeter: false,
+    passive: "狂怒大叫：大叫「干！」激發極致怒氣，50%機率黑閃暴擊(傷害x1.5)，並召喚Driver團長屌切連攜！",
+    moves: [
+      { key: "M1", name: "生氣拳", energy: 10, cooldown: 0, damage: "600", specialMechanic: "普通攻擊" },
+      {
+        key: "G",
+        name: "發怒+大叫干+50%黑閃+召喚Driver團團長衝過去屌切",
+        energy: 50,
+        cooldown: 1,
+        damage: "6000",
+        specialMechanic: "此招式50%黑閃將會把傷害x1.5，加上八塊腹肌Driver團團長的屌切傷害",
+      },
+    ],
+  },
+  {
+    name: "給佬®+姜敦硯",
+    dikra: "0",
+    chakra: "28328",
+    health: "10000",
+    hasEnergyMeter: false,
+    passive: "強制掰開壓制：靠近對手後解鎖全套掰開連招，削弱對手輸出、釋放畫面雜訊干擾，存活五局後領域展開全面壓制！",
+    moves: [
+      {
+        key: "M1",
+        name: "靠近對方",
+        energy: 10,
+        cooldown: 0,
+        damage: "0",
+        specialMechanic: "先使用這招才可以解鎖其他招式",
+      },
+      {
+        key: "Z",
+        name: "衝上前掰開",
+        energy: 25,
+        cooldown: 1,
+        damage: "3000",
+        specialMechanic: "對方目前戰鬥牌打出的傷害永久減半",
+      },
+      {
+        key: "X",
+        name: "塗滿雙手精X，把人家的頭掰開",
+        damage: "4000",
+        cooldown: 2,
+        energy: 10,
+        specialMechanic: "對方目前戰鬥牌打出的傷害再次/3",
+      },
+      {
+        key: "C",
+        name: "把你耳朵掰開，塞Dixx進去",
+        damage: "5000",
+        cooldown: 3,
+        energy: 10,
+        specialMechanic: "對方螢幕出現雜訊效果直到這張牌陣亡",
+      },
+      {
+        key: "V",
+        name: "領域展開，自己掰開",
+        damage: "15000",
+        cooldown: 5,
+        energy: 10,
+        unlockAfterTurns: 5,
+        specialMechanic: "這張牌存活五局後才解鎖，出這招後對方以後不管任何牌打出的攻擊都會變成1/4倍",
+      },
+      {
+        key: "F",
+        name: "快速下樓梯招，團長幫忙",
+        damage: "0",
+        cooldown: 2,
+        energy: 10,
+        specialMechanic: "回復血量2000",
+      },
+    ],
+  },
 ];
 
 // 規範化卡牌屬性與特殊機制解析（尊重使用者自訂內容，不隨意覆蓋）
@@ -132,6 +217,52 @@ function normalizeCard(card) {
   const isRaiche = card.name && card.name.includes("雷切小弟弟");
   if (isRaiche) {
     card.hasEnergyMeter = true;
+  }
+
+  // 陳豆豆機制修飾：確保擁有被動與基礎普攻，避免單一冷卻招式無法行動
+  if (card.name && card.name.includes("陳豆豆")) {
+    if (!card.passive) {
+      card.passive = "狂怒大叫：大叫「干！」激發極致怒氣，50%機率黑閃暴擊(傷害x1.5)，並召喚Driver團長屌切連攜！";
+    }
+    if (Array.isArray(card.moves) && !card.moves.some((m) => m.key === "M1")) {
+      card.moves.unshift({
+        key: "M1",
+        name: "生氣拳",
+        energy: 10,
+        cooldown: 0,
+        damage: "600",
+        specialMechanic: "普通攻擊",
+      });
+    }
+  }
+
+  // 給佬®+姜敦硯 (第2版) 機制規範化
+  if (card.name && (card.name.includes("給佬") || card.name.includes("姜敦硯"))) {
+    card.name = "給佬®+姜敦硯";
+    card.dikra = "0";
+    card.chakra = "28328";
+    card.health = "10000";
+    if (!card.passive) {
+      card.passive = "強制掰開壓制：靠近對手後解鎖全套掰開連招，削弱對手輸出、釋放畫面雜訊干擾，存活五局後領域展開全面壓制！";
+    }
+    if (Array.isArray(card.moves)) {
+      card.moves.forEach((m) => {
+        const isM1 = m.key === "M1" || m.key === "M1招" || (m.name && m.name.includes("靠近"));
+        const isDomain = m.key === "V" || (m.name && m.name.includes("自己掰開"));
+        if (isM1) {
+          m.key = "M1";
+          m.name = "靠近對方";
+          m.unlockAfterTurns = 0;
+          m.cooldown = 0;
+        } else if (isDomain) {
+          m.key = "V";
+          m.name = "領域展開，自己掰開";
+          m.unlockAfterTurns = 5;
+        } else {
+          m.unlockAfterTurns = 0;
+        }
+      });
+    }
   }
 
   if (Array.isArray(card.moves)) {
@@ -147,17 +278,26 @@ function normalizeCard(card) {
         m.energy = isRaiche ? 10 : 15;
       }
 
-      // 開局回合解鎖解析
-      if (sm.includes("解鎖")) {
-        const unlockMatch = sm.match(/(\d+)\s*回合/) || sm.match(/開局\s*(\d+)/);
-        if (unlockMatch) {
-          m.unlockAfterTurns = parseInt(unlockMatch[1]);
+      // 開局或存活回合解鎖解析 (只有明確提到經過/存活/開局 X局或回合後解鎖，才設定 unlockAfterTurns)
+      if (sm.includes("回合") || sm.includes("局")) {
+        const cnNums = { "一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10 };
+        const turnMatch = sm.match(/(?:存活|開局|經過)?\s*([0-9]+|[一二兩三四五六七八九十]+)\s*(?:局|回合)(?:後)?(?:才)?解鎖/);
+        if (turnMatch) {
+          const val = turnMatch[1];
+          m.unlockAfterTurns = cnNums[val] !== undefined ? cnNums[val] : parseInt(val);
         }
+      }
+
+      // 絕不讓 M1 有解鎖等待回合！M1 是基礎起手普攻/靠近招式，立即可用
+      const isM1 = m.key === "M1" || m.key === "M1招" || (m.name && m.name.includes("靠近"));
+      if (isM1) {
+        m.unlockAfterTurns = 0;
+        m.cooldown = 0;
       }
 
       // 冷卻解析
       if (m.cooldown === undefined) {
-        m.cooldown = (m.key === "M1") ? 0 : 1;
+        m.cooldown = isM1 ? 0 : 1;
       }
 
       return m;
@@ -171,8 +311,41 @@ function loadCustomCards() {
   try {
     const saved = localStorage.getItem("customCardLibrary");
     if (saved) {
-      const parsed = JSON.parse(saved);
+      let parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // 徹底刪除新卡牌 5
+        parsed = parsed.filter((c) => !c.name || (!c.name.includes("新卡牌 5") && !c.name.includes("新卡牌5")));
+
+        // 保留第二個版本的給佬+姜敦硯，清除多餘舊版
+        const geilaoDef = defaultCards.find((c) => c.name.includes("給佬") || c.name.includes("姜敦硯"));
+        const geilaoIndices = [];
+        parsed.forEach((c, idx) => {
+          if (c.name && (c.name.includes("給佬") || c.name.includes("姜敦硯"))) {
+            geilaoIndices.push(idx);
+          }
+        });
+        if (geilaoIndices.length > 0) {
+          const keepIdx = geilaoIndices[geilaoIndices.length - 1];
+          parsed = parsed.filter((c, idx) => !geilaoIndices.includes(idx) || idx === keepIdx);
+          const geilaoCard = parsed.find((c) => c.name && (c.name.includes("給佬") || c.name.includes("姜敦硯")));
+          if (geilaoCard && geilaoDef) {
+            geilaoCard.name = "給佬®+姜敦硯";
+            geilaoCard.dikra = "0";
+            geilaoCard.chakra = "28328";
+            geilaoCard.health = "10000";
+            // 每次載入時以標準最新招式資料同步，保證 M1 立即可用、僅 V 招在場存活 5 局解鎖
+            geilaoCard.moves = JSON.parse(JSON.stringify(geilaoDef.moves));
+          }
+        }
+
+        // 合併預設卡牌中尚未存在的卡牌
+        defaultCards.forEach((defCard) => {
+          if (!parsed.some((p) => p.name === defCard.name)) {
+            parsed.push(JSON.parse(JSON.stringify(defCard)));
+          }
+        });
+
+        localStorage.setItem("customCardLibrary", JSON.stringify(parsed));
         return parsed.map(normalizeCard);
       }
     }
@@ -265,6 +438,14 @@ function startBattleSession() {
   currentTurn = "player";
   playerStatus = { defense: 0, damageHalf: false, stunned: false };
   opponentStatus = { defense: 0, damageHalf: false, stunned: false };
+  playerCardDamageMult = 1;
+  opponentCardDamageMult = 1;
+  playerGlobalDamageMult = 1;
+  opponentGlobalDamageMult = 1;
+  playerGeilaoApproached = false;
+  opponentGeilaoApproached = false;
+  isNoiseActive = false;
+  document.body.classList.remove("screen-noise-active");
 
   if (energyFill) energyFill.style.width = "0%";
   if (energyValue) energyValue.textContent = "0%";
@@ -285,9 +466,15 @@ function startBattleSession() {
   playerGlitchTurns = 0;
   opponentGlitchTurns = 0;
   const oppPanel = document.querySelector("#opponentCardPanel");
-  if (oppPanel) oppPanel.classList.remove("glitched-card");
+  if (oppPanel) {
+    oppPanel.classList.remove("glitched-card");
+    oppPanel.classList.remove("card-noise-interference");
+  }
   const pPanel = document.querySelector("#cardPanel");
-  if (pPanel) pPanel.classList.remove("glitched-card");
+  if (pPanel) {
+    pPanel.classList.remove("glitched-card");
+    pPanel.classList.remove("card-noise-interference");
+  }
 
   if (drawButton) {
     drawButton.textContent = "抽牌";
@@ -302,12 +489,19 @@ function startBattleSession() {
 
 if (drawButton) {
   drawButton.addEventListener("click", () => {
-    // 洗牌並各發牌，讓玩家與對手都能擁有卡牌，體現「一張卡牌死了不代表你輸了」
-    const pool = [...cards].sort(() => Math.random() - 0.5);
-    playerHandCards = [pool[0], pool[1]];
-    opponentHandCards = [pool[2] || pool[0], pool[0]]; // 對手也持有多張卡牌儲備
+    // 洗牌並將所有卡牌盡可能發完；若卡牌數量為奇數，隨機選一張不發，剩下平分給雙方
+    const pool = cards.map((c) => JSON.parse(JSON.stringify(c))).sort(() => Math.random() - 0.5);
+    let discardedCardName = "";
+    if (pool.length % 2 !== 0 && pool.length > 0) {
+      const removed = pool.pop(); // 奇數時選一張不發
+      discardedCardName = removed.name;
+    }
 
-    drawButton.textContent = "已抽牌";
+    const half = Math.floor(pool.length / 2);
+    playerHandCards = pool.slice(0, half);
+    opponentHandCards = pool.slice(half);
+
+    drawButton.textContent = "已發牌";
     drawButton.disabled = true;
     renderHand();
     renderOpponentHand();
@@ -315,7 +509,8 @@ if (drawButton) {
 
     // 如果雙方場上皆無牌，提示玩家出牌
     if (!activePlayerCard) {
-      updateTurnBadge("請點選下方卡牌上場");
+      const discardNotice = discardedCardName ? `（牌庫總數為奇數，【${discardedCardName}】本局輪空不發）` : "";
+      updateTurnBadge(`所有卡牌已全數發完（雙方手牌各 ${half} 張${discardNotice}），請點選下方卡牌上場！`);
     }
   });
 }
@@ -393,6 +588,8 @@ function playCard(index) {
   playerMaxHP = parseInt(healthStr) || 10000;
   playerHP = playerMaxHP;
   playerStatus = { defense: 0, damageHalf: false, stunned: false };
+  playerCardDamageMult = 1;
+  playerGeilaoApproached = false;
 
   // 更新我方戰鬥牌面板資訊
   const nameEl = document.querySelector("#cardName");
@@ -469,6 +666,8 @@ function playOpponentNextCard() {
   opponentMaxHP = parseInt(oppHealthStr) || 10000;
   opponentHP = opponentMaxHP;
   opponentStatus = { defense: 0, damageHalf: false, stunned: false };
+  opponentCardDamageMult = 1;
+  opponentGeilaoApproached = false;
 
   const opponentCardPanel = document.querySelector("#opponentCardPanel");
   const opponentEmptyFieldSlot = document.querySelector("#opponentEmptyFieldSlot");
@@ -598,6 +797,9 @@ function updateFieldStatusTags() {
     const buffs = [];
     if (playerStatus.defense > 0) buffs.push(`護甲 +${playerStatus.defense}`);
     if (playerStatus.damageHalf) buffs.push("⚠️ 下次傷害減半");
+    if (playerCardDamageMult < 1) buffs.push(`⚠️ 傷害降至 ${(playerCardDamageMult * 100).toFixed(0)}%`);
+    if (playerGlobalDamageMult < 1) buffs.push("🌌 領域壓制(傷害1/4)");
+    if (isNoiseActive) buffs.push("📺 雜訊干擾");
     if (playerStatus.stunned) buffs.push("被封鎖行動");
     playerBuffTag.textContent = buffs.join(" | ");
   }
@@ -606,6 +808,9 @@ function updateFieldStatusTags() {
     const buffs = [];
     if (opponentStatus.defense > 0) buffs.push(`護甲 +${opponentStatus.defense}`);
     if (opponentStatus.damageHalf) buffs.push("⚠️ 下次傷害減半");
+    if (opponentCardDamageMult < 1) buffs.push(`⚠️ 傷害降至 ${(opponentCardDamageMult * 100).toFixed(0)}%`);
+    if (opponentGlobalDamageMult < 1) buffs.push("🌌 領域壓制(傷害1/4)");
+    if (isNoiseActive) buffs.push("📺 雜訊干擾");
     if (opponentStatus.stunned) buffs.push("被封鎖行動");
     opponentBuffTag.textContent = buffs.join(" | ");
   }
@@ -632,26 +837,38 @@ function renderMoves() {
 
   moveList.innerHTML = "";
 
+  const isPlayerGeilao = activePlayerCard && (activePlayerCard.name.includes("給佬") || activePlayerCard.name.includes("姜敦硯"));
+
   playerMoves.forEach((move) => {
     const button = document.createElement("button");
     button.className = "move-button";
     button.type = "button";
 
+    const isM1 = move.key === "M1" || move.key === "M1招" || (move.name && move.name.includes("靠近"));
+    const isGeilaoLocked = isPlayerGeilao && !playerGeilaoApproached && !isM1;
+    const isSurvivalLocked = !isM1 && move.unlockRemaining > 0;
+
     let lockTag = "";
-    if (move.unlockRemaining > 0) {
-      lockTag = ` <span class="lock-tag">🔒 解鎖剩餘 ${move.unlockRemaining} 回合</span>`;
+    if (isSurvivalLocked && isGeilaoLocked) {
+      lockTag = ` <span class="lock-tag">🔒 需先出 M1（且在場存活剩餘 ${move.unlockRemaining} 局）</span>`;
+    } else if (isSurvivalLocked) {
+      lockTag = ` <span class="lock-tag">🔒 存活剩餘 ${move.unlockRemaining} 局解鎖</span>`;
+    } else if (isGeilaoLocked) {
+      lockTag = ` <span class="lock-tag">🔒 需先出 M1「靠近對方」</span>`;
     } else if (move.cooldownRemaining > 0) {
       lockTag = ` <span class="cd-tag">⏳ CD: ${move.cooldownRemaining} 回合</span>`;
     }
 
     button.innerHTML = `<span>${move.key}：${move.name}${lockTag}</span><span class="move-energy">${formatMoveMeta(move, activePlayerCard)}</span>`;
 
-    const lockRemaining = Math.max(move.cooldownRemaining, move.unlockRemaining);
+    const lockRemaining = isM1 ? 0 : Math.max(move.cooldownRemaining, move.unlockRemaining);
 
-    if (gameOver || playerHP <= 0 || currentTurn !== "player" || lockRemaining > 0) {
+    if (gameOver || playerHP <= 0 || currentTurn !== "player" || lockRemaining > 0 || isGeilaoLocked) {
       button.classList.add("cooling");
       button.disabled = true;
-      if (lockRemaining > 0) {
+      if (isGeilaoLocked || isSurvivalLocked) {
+        button.style.setProperty("--cooldown-left", "100%");
+      } else if (move.cooldownRemaining > 0) {
         button.style.setProperty("--cooldown-left", `${getMoveLockPercent(move)}%`);
       } else {
         button.style.setProperty("--cooldown-left", "100%");
@@ -673,21 +890,32 @@ function renderOpponentMoves() {
   if (!opponentMoveList || !opponentActiveCard) return;
 
   opponentMoveList.innerHTML = "";
+
+  const isOppGeilao = opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"));
+
   opponentMoves.forEach((move) => {
     const item = document.createElement("div");
     item.className = "move-button library-move";
 
+    const isM1 = move.key === "M1" || move.key === "M1招" || (move.name && move.name.includes("靠近"));
+    const isGeilaoLocked = isOppGeilao && !opponentGeilaoApproached && !isM1;
+    const isSurvivalLocked = !isM1 && move.unlockRemaining > 0;
+
     let lockTag = "";
-    if (move.unlockRemaining > 0) {
-      lockTag = ` <span class="lock-tag">🔒 解鎖剩餘 ${move.unlockRemaining} 回合</span>`;
+    if (isSurvivalLocked && isGeilaoLocked) {
+      lockTag = ` <span class="lock-tag">🔒 需先出 M1（且在場存活剩餘 ${move.unlockRemaining} 局）</span>`;
+    } else if (isSurvivalLocked) {
+      lockTag = ` <span class="lock-tag">🔒 存活剩餘 ${move.unlockRemaining} 局解鎖</span>`;
+    } else if (isGeilaoLocked) {
+      lockTag = ` <span class="lock-tag">🔒 需先出 M1「靠近對方」</span>`;
     } else if (move.cooldownRemaining > 0) {
       lockTag = ` <span class="cd-tag">⏳ CD: ${move.cooldownRemaining} 回合</span>`;
     }
 
     item.innerHTML = `<span>${move.key}：${move.name}${lockTag}</span><span class="move-energy">${formatMoveMeta(move, opponentActiveCard)}</span>`;
 
-    const lockRemaining = Math.max(move.cooldownRemaining, move.unlockRemaining);
-    if (lockRemaining > 0) {
+    const lockRemaining = isM1 ? 0 : Math.max(move.cooldownRemaining, move.unlockRemaining);
+    if (lockRemaining > 0 || isGeilaoLocked) {
       item.classList.add("cooling");
       item.style.setProperty("--cooldown-left", `${getMoveLockPercent(move)}%`);
     } else if (currentTurn === "player" || opponentStatus.stunned) {
@@ -704,6 +932,21 @@ function renderOpponentMoves() {
 
 function useMove(selectedMove) {
   if (gameOver || playerHP <= 0 || opponentHP <= 0 || currentTurn !== "player") return;
+
+  const isM1Move = selectedMove.key === "M1" || selectedMove.key === "M1招" || (selectedMove.name && selectedMove.name.includes("靠近"));
+
+  // 檢查招式是否尚未解鎖（開局或存活局數限制，M1 絕不鎖定）
+  if (!isM1Move && selectedMove.unlockRemaining > 0) {
+    updateTurnBadge(`🔒 該招式尚未解鎖！還需存活 ${selectedMove.unlockRemaining} 局才能發動！`);
+    return;
+  }
+
+  // 給佬®+姜敦硯 必須先使用 M1 靠近對方
+  const isPlayerGeilaoCheck = activePlayerCard && (activePlayerCard.name.includes("給佬") || activePlayerCard.name.includes("姜敦硯"));
+  if (isPlayerGeilaoCheck && !playerGeilaoApproached && !isM1Move) {
+    updateTurnBadge("🔒 請先使用 M1【靠近對方】解鎖全套連招！");
+    return;
+  }
 
   // 檢查是否被封鎖
   if (playerStatus.stunned) {
@@ -788,6 +1031,27 @@ function useMove(selectedMove) {
   // 計算傷害與特殊效果
   let damage = parseDamageValue(selectedMove.damage);
 
+  // 陳豆豆招式機制：50% 黑閃 (x1.5) + 八塊腹肌Driver團團長「屌切」傷害 (+500)
+  const isChenDouDouSkill = (activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("陳豆豆")) ||
+    (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("黑閃"));
+
+  if (isChenDouDouSkill && (selectedMove.name.includes("黑閃") || selectedMove.name.includes("發怒") || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("黑閃")))) {
+    const isBlackFlash = Math.random() < 0.5;
+    const baseDmg = parseDamageValue(selectedMove.damage) || 6000;
+    const driverCutDmg = 500; // 八塊腹肌Driver團團長屌切傷害
+
+    if (isBlackFlash) {
+      const flashDmg = Math.floor(baseDmg * 1.5);
+      damage = flashDmg + driverCutDmg;
+      triggerScreenShake();
+      updateTurnBadge(`⚡🖤【陳豆豆】狂暴大叫「干！」觸發 50% 黑閃暴擊（傷害 x1.5 = ${flashDmg}）！召喚八塊腹肌Driver團長衝出屌切(+${driverCutDmg})！共造成 ${damage} 點毀滅傷害！`);
+    } else {
+      damage = baseDmg + driverCutDmg;
+      triggerScreenShake();
+      updateTurnBadge(`🔥【陳豆豆】狂暴大叫「干！」召喚八塊腹肌Driver團長衝出補上屌切(+${driverCutDmg})！共造成 ${damage} 點重擊！`);
+    }
+  }
+
   if (selectedMove.name === "後撤步雷切") playerStatus.defense += 1000;
   if (selectedMove.name === "召喚八塊腹肌") {
     playerStatus.defense += 2000; // 獲得2000防禦力
@@ -803,6 +1067,41 @@ function useMove(selectedMove) {
     }
     if (sm.includes("減半")) {
       opponentStatus.damageHalf = true;
+    }
+  }
+
+  // 給佬®+姜敦硯 特殊招式機制 (玩家施展)
+  const isPlayerGeilao = activePlayerCard && (activePlayerCard.name.includes("給佬") || activePlayerCard.name.includes("姜敦硯"));
+
+  if (isPlayerGeilao) {
+    if (selectedMove.key === "M1" || selectedMove.name === "靠近對方") {
+      playerGeilaoApproached = true;
+      updateTurnBadge("🏃‍♂️【給佬®+姜敦硯】成功靠近對方！全套掰開連招正式解鎖！");
+    } else if (selectedMove.key === "Z" || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("傷害永久減半"))) {
+      opponentCardDamageMult *= 0.5;
+      triggerScreenShake();
+      updateTurnBadge(`🥋【給佬®+姜敦硯】衝上前掰開！造成 ${damage} 傷害！對手當前戰鬥牌傷害永久減半（現為 ${(opponentCardDamageMult * 100).toFixed(0)}%）！`);
+    } else if (selectedMove.key === "X" || (selectedMove.specialMechanic && (selectedMove.specialMechanic.includes("/3") || selectedMove.specialMechanic.includes("再次")))) {
+      opponentCardDamageMult *= (1 / 3);
+      triggerScreenShake();
+      updateTurnBadge(`👐【給佬®+姜敦硯】塗滿雙手精X掰開對手的頭！造成 ${damage} 傷害！對手當前牌傷害再次除以 3（現為 ${(opponentCardDamageMult * 100).toFixed(0)}%）！`);
+    } else if (selectedMove.key === "C" || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("雜訊"))) {
+      isNoiseActive = true;
+      document.body.classList.add("screen-noise-active");
+      const oppPanel = document.querySelector("#opponentCardPanel");
+      if (oppPanel) oppPanel.classList.add("card-noise-interference");
+      triggerScreenShake();
+      updateTurnBadge(`🔊【給佬®+姜敦硯】把你耳朵掰開塞Dixx進去！造成 ${damage} 傷害！對手畫面出現雜訊干擾，直到這張牌陣亡！`);
+    } else if (selectedMove.key === "V" || selectedMove.name.includes("自己掰開")) {
+      opponentGlobalDamageMult = 0.25;
+      triggerScreenShake();
+      updateTurnBadge(`🌌【給佬®+姜敦硯】領域展開，自己掰開！造成 ${damage} 毀滅傷害！對手以後不管換任何牌，打出的攻擊傷害永久降為 1/4！`);
+    } else if (selectedMove.key === "F" || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("回復血量2000"))) {
+      const healAmount = Math.min(2000, playerMaxHP - playerHP);
+      playerHP += healAmount;
+      const plyHPText = document.querySelector("#cardHealth");
+      if (plyHPText) plyHPText.textContent = playerHP;
+      updateTurnBadge(`🏃‍♂️【給佬®+姜敦硯】快速下樓梯逃跑，Driver團長掩護！回復了 ${healAmount} 點生命值！`);
     }
   }
 
@@ -897,7 +1196,16 @@ function opponentTurn() {
     return;
   }
 
-  const availableMoves = opponentMoves.filter((m) => m.cooldownRemaining === 0 && m.unlockRemaining === 0);
+  const isOppGeilao = opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"));
+  let availableMoves = opponentMoves.filter((m) => {
+    const isM1 = m.key === "M1" || m.key === "M1招" || (m.name && m.name.includes("靠近"));
+    if (isM1) return true;
+    return m.cooldownRemaining === 0 && m.unlockRemaining === 0;
+  });
+  if (isOppGeilao && !opponentGeilaoApproached) {
+    availableMoves = availableMoves.filter((m) => m.key === "M1" || m.key === "M1招" || (m.name && m.name.includes("靠近")));
+  }
+
   if (availableMoves.length === 0) {
     if (opponentGlitchTurns > 0) {
       opponentGlitchTurns--;
@@ -917,7 +1225,7 @@ function opponentTurn() {
   } else {
     move = availableMoves.find((m) => parseDamageValue(m.damage) >= playerHP);
     if (!move && opponentHP < opponentMaxHP * 0.4) {
-      move = availableMoves.find((m) => m.name === "後撤步雷切" || m.name === "召喚八塊腹肌");
+      move = availableMoves.find((m) => m.name === "後撤步雷切" || m.name === "召喚八塊腹肌" || m.name === "快速下樓梯招，團長幫忙");
     }
     if (!move) move = availableMoves.find((m) => m.name === "切換人格騙術色誘");
     if (!move) move = availableMoves.sort((a, b) => parseDamageValue(b.damage) - parseDamageValue(a.damage))[0];
@@ -1002,6 +1310,28 @@ function opponentTurn() {
     }
 
     let damage = parseDamageValue(move.damage);
+
+    // 電腦陳豆豆招式機制：50% 黑閃 (x1.5) + 八塊腹肌Driver團團長「屌切」傷害 (+500)
+    const isOppChenDouDouSkill = (opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("陳豆豆")) ||
+      (move.specialMechanic && move.specialMechanic.includes("黑閃"));
+
+    if (isOppChenDouDouSkill && (move.name.includes("黑閃") || move.name.includes("發怒") || (move.specialMechanic && move.specialMechanic.includes("黑閃")))) {
+      const isBlackFlash = Math.random() < 0.5;
+      const baseDmg = parseDamageValue(move.damage) || 6000;
+      const driverCutDmg = 500; // 八塊腹肌Driver團團長屌切傷害
+
+      if (isBlackFlash) {
+        const flashDmg = Math.floor(baseDmg * 1.5);
+        damage = flashDmg + driverCutDmg;
+        triggerScreenShake();
+        updateTurnBadge(`⚡🖤 對手【陳豆豆】大叫「干！」觸發 50% 黑閃暴擊（傷害 x1.5 = ${flashDmg}）！召喚Driver團長衝出屌切(+${driverCutDmg})！造成 ${damage} 點毀滅傷害！`);
+      } else {
+        damage = baseDmg + driverCutDmg;
+        triggerScreenShake();
+        updateTurnBadge(`🔥 對手【陳豆豆】大叫「干！」召喚八塊腹肌Driver團長衝出補上屌切(+${driverCutDmg})！造成 ${damage} 點傷害！`);
+      }
+    }
+
     const isOppCharm = move.name === "切換人格騙術色誘" || (move.specialMechanic && (move.specialMechanic.includes("停止") || move.specialMechanic.includes("色誘")));
 
     if (move.name === "後撤步雷切") opponentStatus.defense += 1000;
@@ -1018,6 +1348,39 @@ function opponentTurn() {
       }
       if (sm.includes("減半")) {
         playerStatus.damageHalf = true;
+      }
+    }
+
+    // 電腦為給佬®+姜敦硯時的招式機制
+    if (isOppGeilao) {
+      if (move.key === "M1" || move.name === "靠近對方") {
+        opponentGeilaoApproached = true;
+        updateTurnBadge("🏃‍♂️ 對手【給佬®+姜敦硯】靠近我方！全套掰開連招正式解鎖！");
+      } else if (move.key === "Z" || (move.specialMechanic && move.specialMechanic.includes("傷害永久減半"))) {
+        playerCardDamageMult *= 0.5;
+        triggerScreenShake();
+        updateTurnBadge(`🥋 對手【給佬®+姜敦硯】衝上前掰開！造成 ${damage} 傷害！我方當前牌傷害永久減半（現為 ${(playerCardDamageMult * 100).toFixed(0)}%）！`);
+      } else if (move.key === "X" || (move.specialMechanic && (move.specialMechanic.includes("/3") || move.specialMechanic.includes("再次")))) {
+        playerCardDamageMult *= (1 / 3);
+        triggerScreenShake();
+        updateTurnBadge(`👐 對手【給佬®+姜敦硯】塗滿雙手精X掰開我方頭部！造成 ${damage} 傷害！我方當前牌傷害再次除以 3（現為 ${(playerCardDamageMult * 100).toFixed(0)}%）！`);
+      } else if (move.key === "C" || (move.specialMechanic && move.specialMechanic.includes("雜訊"))) {
+        isNoiseActive = true;
+        document.body.classList.add("screen-noise-active");
+        const pPanel = document.querySelector("#cardPanel");
+        if (pPanel) pPanel.classList.add("card-noise-interference");
+        triggerScreenShake();
+        updateTurnBadge(`🔊 對手【給佬®+姜敦硯】把我方耳朵掰開塞Dixx進去！造成 ${damage} 傷害！螢幕陷入強烈雜訊干擾，直到該牌陣亡！`);
+      } else if (move.key === "V" || move.name.includes("自己掰開")) {
+        playerGlobalDamageMult = 0.25;
+        triggerScreenShake();
+        updateTurnBadge(`🌌 對手【給佬®+姜敦硯】領域展開，自己掰開！造成 ${damage} 毀滅傷害！我方往後任何牌的所有傷害永久變為 1/4！`);
+      } else if (move.key === "F" || (move.specialMechanic && move.specialMechanic.includes("回復血量2000"))) {
+        const oppHeal = Math.min(2000, opponentMaxHP - opponentHP);
+        opponentHP += oppHeal;
+        const oppHPText = document.querySelector("#opponentHealth");
+        if (oppHPText) oppHPText.textContent = opponentHP;
+        updateTurnBadge(`🏃‍♂️ 對手【給佬®+姜敦硯】快速下樓梯招，Driver團長掩護！回復了 ${oppHeal} 點生命值！`);
       }
     }
 
@@ -1091,6 +1454,17 @@ function handlePlayerCardDefeated() {
   const cardPanelEl = document.querySelector("#cardPanel");
   if (cardPanelEl) cardPanelEl.classList.add("dead");
 
+  // 若當前卡牌為姜敦硯，陣亡時解除雜訊效果
+  if (activePlayerCard && (activePlayerCard.name.includes("給佬") || activePlayerCard.name.includes("姜敦硯"))) {
+    if (!opponentActiveCard || (!opponentActiveCard.name.includes("給佬") && !opponentActiveCard.name.includes("姜敦硯"))) {
+      isNoiseActive = false;
+      document.body.classList.remove("screen-noise-active");
+      const oppPanel = document.querySelector("#opponentCardPanel");
+      if (oppPanel) oppPanel.classList.remove("card-noise-interference");
+      if (cardPanelEl) cardPanelEl.classList.remove("card-noise-interference");
+    }
+  }
+
   // 一張卡牌死了不代表你輸了：檢查手牌中是否還有其他備戰卡牌
   if (playerHandCards.length > 0) {
     updateTurnBadge("當前卡牌已陣亡！請從我方手牌選擇下一張卡牌上陣！");
@@ -1105,6 +1479,17 @@ function handlePlayerCardDefeated() {
 function handleOpponentCardDefeated() {
   const opponentCardPanel = document.querySelector("#opponentCardPanel");
   if (opponentCardPanel) opponentCardPanel.classList.add("dead");
+
+  // 若對手卡牌為姜敦硯，陣亡時解除雜訊效果
+  if (opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"))) {
+    if (!activePlayerCard || (!activePlayerCard.name.includes("給佬") && !activePlayerCard.name.includes("姜敦硯"))) {
+      isNoiseActive = false;
+      document.body.classList.remove("screen-noise-active");
+      if (opponentCardPanel) opponentCardPanel.classList.remove("card-noise-interference");
+      const pPanel = document.querySelector("#cardPanel");
+      if (pPanel) pPanel.classList.remove("card-noise-interference");
+    }
+  }
 
   if (opponentHandCards.length > 0) {
     updateTurnBadge("對手卡牌已陣亡！對手正在派上下一張卡牌...");
@@ -1313,6 +1698,15 @@ function parseDamageValue(damageStr) {
 
 function applyDamage(target, amount, attackerStatus, defenderStatus) {
   let finalDamage = amount;
+
+  // 姜敦硯機制：弱化倍率與全局領域壓制倍率
+  if (target === "opponent") {
+    // 玩家攻擊對手
+    finalDamage = Math.floor(finalDamage * playerCardDamageMult * playerGlobalDamageMult);
+  } else {
+    // 對手攻擊玩家
+    finalDamage = Math.floor(finalDamage * opponentCardDamageMult * opponentGlobalDamageMult);
+  }
 
   // 檢查減半效果
   if (attackerStatus.damageHalf) {
@@ -1668,11 +2062,28 @@ function formatMoveMeta(move, card) {
 }
 
 function createBattleMoves(card) {
-  return card.moves.map((move) => ({
-    ...move,
-    cooldownRemaining: 0,
-    unlockRemaining: move.unlockAfterTurns || 0,
-  }));
+  const isGeilao = card && card.name && (card.name.includes("給佬") || card.name.includes("姜敦硯"));
+  return card.moves.map((move) => {
+    const isM1 = move.key === "M1" || move.key === "M1招" || (move.name && move.name.includes("靠近"));
+    const isDomain = move.key === "V" || (move.name && move.name.includes("自己掰開"));
+    let unlockTurns = move.unlockAfterTurns || 0;
+    if (isGeilao) {
+      if (isM1) {
+        unlockTurns = 0;
+      } else if (isDomain) {
+        unlockTurns = 5;
+      } else {
+        unlockTurns = 0;
+      }
+    } else if (isM1) {
+      unlockTurns = 0;
+    }
+    return {
+      ...move,
+      cooldownRemaining: 0,
+      unlockRemaining: unlockTurns,
+    };
+  });
 }
 
 function getMoveLockPercent(move) {
