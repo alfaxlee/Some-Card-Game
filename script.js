@@ -66,6 +66,12 @@ let playerHP = 0;
 let opponentHP = 0;
 let playerMaxHP = 0;
 let opponentMaxHP = 0;
+let playerStackedCard = null; // 我方戰鬥牌區疊牌卡牌（雙卡同場共鬥）
+let playerStackedHP = 0; // 我方疊牌卡牌血量
+let playerStackedMaxHP = 0; // 我方疊牌卡牌最大血量
+let opponentStackedCard = null; // 對手戰鬥牌區疊牌卡牌
+let opponentStackedHP = 0; // 對手疊牌卡牌血量
+let opponentStackedMaxHP = 0; // 對手疊牌卡牌最大血量
 let playerStatus = { defense: 0, damageHalf: false, stunned: false };
 let opponentStatus = { defense: 0, damageHalf: false, stunned: false };
 let playerCardDamageMult = 1; // 當前卡牌傷害倍率 (Z/X招削弱)
@@ -75,6 +81,7 @@ let opponentGlobalDamageMult = 1; // 對手全局傷害倍率 (姜敦硯 V招 �
 let playerGeilaoApproached = false; // 我方姜敦硯是否已使用 M1 靠近對方
 let opponentGeilaoApproached = false; // 對手姜敦硯是否已使用 M1 靠近對方
 let isNoiseActive = false; // 是否處於畫面雜訊干擾中
+let opponentMovesScrambled = false; // 電腦招式排列是否被打亂
 let playerGlitchTurns = 0; // 我方卡牌與招式亂碼剩餘回合數 (一局)
 let opponentGlitchTurns = 0; // 對手卡牌與招式亂碼剩餘回合數 (一局)
 let currentTurn = "player"; // "player" or "opponent"
@@ -91,12 +98,12 @@ const defaultCards = [
     passive: '噁心能量條集滿發動"領域展開，超究極冥王拔不出來術登登登dua郎之炮"',
     moves: [
       { key: "M1", name: "雷刀連擊", energy: 10, cooldown: 0, damage: "350", specialMechanic: "噁心能量條+10%" },
-      { key: "Z", name: "嘟", energy: 5, cooldown: 1, damage: "400", specialMechanic: "噁心能量條+5%" },
-      { key: "X", name: "迪克滿天飛之陣", energy: 20, cooldown: 1, damage: "700", specialMechanic: "噁心能量條+20%" },
-      { key: "C", name: "三重打包", energy: 40, cooldown: 2, damage: "5000", specialMechanic: "噁心能量條+40%" },
-      { key: "V", name: "領域展開，", energy: 50, cooldown: 3, unlockAfterTurns: 5, damage: "999999999999999999", specialMechanic: "可以選擇你要「做死、傳說對接、視獄偽境、真Dixx不斷、迪克崩壞、(Censored)」擇一發動領域" },
-      { key: "F", name: "究極冥王炮", energy: 100, cooldown: 3, unlockAfterTurns: 8, damage: "17000" },
-      { key: "G", name: "爸爸堅強又金色狂風七人隊八級大，大牛比較懶又玩高鐵的工人有他", energy: 10, cooldown: 2, damage: "0", specialMechanic: "對方卡牌所有字元變成亂碼，所有攻擊的排列順序隨機互換，電腦正常運作但點下去的位置會變" },
+      { key: "Z", name: "嘟", energy: 5, cooldown: 0, damage: "400", specialMechanic: "噁心能量條+5%" },
+      { key: "X", name: "迪克滿天飛之陣", energy: 20, cooldown: 0, damage: "700", specialMechanic: "噁心能量條+20%" },
+      { key: "C", name: "三重打包", energy: 40, cooldown: 1, damage: "5000", specialMechanic: "噁心能量條+40%" },
+      { key: "V", name: "領域展開，", energy: 50, cooldown: 2, unlockAfterTurns: 4, damage: "999999999999999999", specialMechanic: "(絕招) 可以選擇你要「做死、傳說對接、視獄偽境、真Dixx不斷、迪克崩壞、(Censored)」擇一發動領域" },
+      { key: "F", name: "究極冥王炮", energy: 100, cooldown: 2, unlockAfterTurns: 7, damage: "17000", specialMechanic: "(絕招) 開局7回合後解鎖" },
+      { key: "G", name: "爸爸堅強又金色狂風七人隊八級大，大牛比較懶又玩高鐵的工人有他", energy: 10, cooldown: 1, damage: "0", specialMechanic: "對方卡牌所有字元變成亂碼，所有攻擊的排列順序隨機互換，電腦正常運作但點下去的位置會變" },
     ],
   },
   {
@@ -107,12 +114,12 @@ const defaultCards = [
     hasEnergyMeter: false,
     passive: "切換腳切強化M1，棒子與體術連攜壓制。",
     moves: [
-      { key: "M1", name: "雷切", energy: 5, cooldown: 0, damage: "600" },
-      { key: "Z", name: "切換腳切", energy: 10, cooldown: 2, damage: "0", specialMechanic: "雷切變成腳切，腳切傷害2000" },
+      { key: "M1", name: "雷切", energy: 5, cooldown: 0, damage: "10000" },
+      { key: "Z", name: "切換腳切", energy: 10, cooldown: 2, damage: "0", specialMechanic: "雷切變成腳切，腳切傷害5000" },
       { key: "X", name: "後撤步雷切", energy: 15, cooldown: 1, damage: "700", specialMechanic: "加上1000防禦" },
-      { key: "C", name: "棒子配合腳切組合", energy: 20, cooldown: 2, damage: "1100" },
-      { key: "V", name: "阿嚕霸牆壁combo", energy: 35, cooldown: 3, unlockAfterTurns: 3, damage: "8000", specialMechanic: "開局3回合後解鎖" },
-      { key: "F", name: "領域展開，無限之切", energy: 100, cooldown: 7, unlockAfterTurns: 5, damage: "無限", specialMechanic: "開局5回合後解鎖" },
+      { key: "C", name: "棒子配合腳切組合", energy: 20, cooldown: 2, damage: "3000" },
+      { key: "V", name: "阿嚕霸牆壁combo", energy: 35, cooldown: 3, unlockAfterTurns: 2, damage: "10000", specialMechanic: "開局3回合後解鎖(絕招)" },
+      { key: "F", name: "領域展開，無限之切", energy: 100, cooldown: 7, unlockAfterTurns: 4, damage: "無限", specialMechanic: "開局5回合後解鎖(絕招)" },
     ],
   },
   {
@@ -125,10 +132,10 @@ const defaultCards = [
     moves: [
       { key: "M1", name: "屌切", energy: 10, cooldown: 0, damage: "500" },
       { key: "Z招", name: "起來砸你屌", energy: 15, cooldown: 0, damage: "600" },
-      { key: "X招", name: "切換人格騙術色誘", energy: 20, cooldown: 2, damage: "200 (對手停止發招一局)", specialMechanic: "對手停止發招一局" },
-      { key: "C招", name: "黑洞吸引", energy: 30, cooldown: 1, damage: "1100" },
-      { key: "V招", name: "召喚八塊腹肌", energy: 40, cooldown: 3, damage: "0 (獲得2000防禦力)", specialMechanic: "獲得2000防禦力" },
-      { key: "F招", name: "超級自爆！！！！", energy: 100, cooldown: 5, unlockAfterTurns: 7, damage: "無限", specialMechanic: "開局7回合後解鎖" },
+      { key: "X招", name: "切換人格騙術色誘", energy: 20, cooldown: 1, damage: "200 (對手停止發招一局)", specialMechanic: "對手停止發招一局" },
+      { key: "C招", name: "黑洞吸引", energy: 30, cooldown: 0, damage: "1100" },
+      { key: "V招", name: "召喚八塊腹肌", energy: 40, cooldown: 2, damage: "0 (獲得2000防禦力)", specialMechanic: "獲得2000防禦力" },
+      { key: "F招", name: "超級自爆！！！！", energy: 100, cooldown: 4, unlockAfterTurns: 6, damage: "無限", specialMechanic: "(絕招) 開局6回合後解鎖" },
     ],
   },
   {
@@ -139,14 +146,13 @@ const defaultCards = [
     hasEnergyMeter: false,
     passive: "狂怒大叫：大叫「干！」激發極致怒氣，50%機率黑閃暴擊(傷害x1.5)，並召喚Driver團長屌切連攜！",
     moves: [
-      { key: "M1", name: "生氣拳", energy: 10, cooldown: 0, damage: "600", specialMechanic: "普通攻擊" },
       {
         key: "G",
         name: "發怒+大叫干+50%黑閃+召喚Driver團團長衝過去屌切",
         energy: 50,
-        cooldown: 1,
+        cooldown: 2,
         damage: "6000",
-        specialMechanic: "此招式50%黑閃將會把傷害x1.5，加上八塊腹肌Driver團團長的屌切傷害",
+        specialMechanic: "(絕招) 此招式50%黑閃將會把傷害x1.5，加上八塊腹肌Driver團團長的屌切傷害",
       },
     ],
   },
@@ -170,7 +176,7 @@ const defaultCards = [
         key: "Z",
         name: "衝上前掰開",
         energy: 25,
-        cooldown: 1,
+        cooldown: 0,
         damage: "3000",
         specialMechanic: "對方目前戰鬥牌打出的傷害永久減半",
       },
@@ -178,7 +184,7 @@ const defaultCards = [
         key: "X",
         name: "塗滿雙手精X，把人家的頭掰開",
         damage: "4000",
-        cooldown: 2,
+        cooldown: 1,
         energy: 10,
         specialMechanic: "對方目前戰鬥牌打出的傷害再次/3",
       },
@@ -186,7 +192,7 @@ const defaultCards = [
         key: "C",
         name: "把你耳朵掰開，塞Dixx進去",
         damage: "5000",
-        cooldown: 3,
+        cooldown: 2,
         energy: 10,
         specialMechanic: "對方螢幕出現雜訊效果直到這張牌陣亡",
       },
@@ -194,16 +200,16 @@ const defaultCards = [
         key: "V",
         name: "領域展開，自己掰開",
         damage: "15000",
-        cooldown: 5,
+        cooldown: 4,
         energy: 10,
-        unlockAfterTurns: 5,
-        specialMechanic: "這張牌存活五局後才解鎖，出這招後對方以後不管任何牌打出的攻擊都會變成1/4倍",
+        unlockAfterTurns: 4,
+        specialMechanic: "(絕招) 這張牌存活四局後才解鎖，出這招後對方以後不管任何牌打出的攻擊都會變成1/4倍",
       },
       {
         key: "F",
         name: "快速下樓梯招，團長幫忙",
         damage: "0",
-        cooldown: 2,
+        cooldown: 1,
         energy: 10,
         specialMechanic: "回復血量2000",
       },
@@ -218,9 +224,9 @@ const defaultCards = [
     passive: "血量跟狗一樣：身板脆弱如狗，但對姜敦硯具備絕對特攻，並能隨時召喚強大的Driver團長前來救援！",
     moves: [
       { key: "M1", name: "吠", damage: "800", energy: 10, cooldown: 0, unlockAfterTurns: 0, specialMechanic: "普通攻擊" },
-      { key: "Z", name: "反掰開", damage: "1200", energy: 25, cooldown: 2, specialMechanic: "若對手是姜敦硯必殺" },
-      { key: "X", name: "往你嘴裡塞迪克", damage: "500", cooldown: 2, energy: 10, specialMechanic: "對方停止出招一局" },
-      { key: "C", name: "召喚團長", damage: "500", cooldown: 1, energy: 10, specialMechanic: "將Driver團長加到自己備戰區(不論團長是生是死是對方還是我的)" },
+      { key: "Z", name: "反掰開", damage: "1200", energy: 25, cooldown: 1, specialMechanic: "(絕招) 若對手是姜敦硯必殺" },
+      { key: "X", name: "往你嘴裡塞迪克", damage: "500", cooldown: 1, energy: 10, specialMechanic: "對方停止出招一局" },
+      { key: "C", name: "召喚團長", damage: "500", cooldown: 0, energy: 10, specialMechanic: "將Driver團長疊牌至自己戰鬥牌區(雙卡同時在場共鬥，不論團長是生是死是對方還是我的)" },
     ],
   },
 ];
@@ -233,29 +239,15 @@ function normalizeCard(card) {
     card.hasEnergyMeter = true;
   }
 
-  // 陳豆豆機制修飾：確保擁有被動與基礎普攻，避免單一冷卻招式無法行動
+  // 陳豆豆機制修飾：尊重使用者自訂內容，絕不擅自添加生氣拳
   if (card.name && card.name.includes("陳豆豆")) {
     if (!card.passive) {
       card.passive = "狂怒大叫：大叫「干！」激發極致怒氣，50%機率黑閃暴擊(傷害x1.5)，並召喚Driver團長屌切連攜！";
-    }
-    if (Array.isArray(card.moves) && !card.moves.some((m) => m.key === "M1")) {
-      card.moves.unshift({
-        key: "M1",
-        name: "生氣拳",
-        energy: 10,
-        cooldown: 0,
-        damage: "600",
-        specialMechanic: "普通攻擊",
-      });
     }
   }
 
   // 給佬®+姜敦硯 (第2版) 機制規範化
   if (card.name && (card.name.includes("給佬") || card.name.includes("姜敦硯"))) {
-    card.name = "給佬®+姜敦硯";
-    card.dikra = "0";
-    card.chakra = "28328";
-    card.health = "10000";
     if (!card.passive) {
       card.passive = "強制掰開壓制：靠近對手後解鎖全套掰開連招，削弱對手輸出、釋放畫面雜訊干擾，存活五局後領域展開全面壓制！";
     }
@@ -271,7 +263,7 @@ function normalizeCard(card) {
         } else if (isDomain) {
           m.key = "V";
           m.name = "領域展開，自己掰開";
-          m.unlockAfterTurns = 5;
+          m.unlockAfterTurns = 4;
         } else {
           m.unlockAfterTurns = 0;
         }
@@ -279,13 +271,19 @@ function normalizeCard(card) {
     }
   }
 
-  // 林走狗 機制規範化
+  // 林走狗 機制規範化：尊重使用者自訂數值與技能，不強制覆蓋血量與被動
   if (card.name && card.name.includes("林走狗")) {
-    card.name = "林走狗";
-    card.health = "1050";
+    if (!card.health) {
+      card.health = "1050";
+    }
     if (!card.passive) {
       card.passive = "血量跟狗一樣：身板脆弱如狗，但對姜敦硯具備絕對特攻，並能隨時召喚強大的Driver團長前來救援！";
     }
+  }
+
+  // 徹底移除「生氣拳」，確保卡牌庫中永遠不殘留生氣拳
+  if (Array.isArray(card.moves)) {
+    card.moves = card.moves.filter((m) => m && m.name !== "生氣拳");
   }
 
   if (Array.isArray(card.moves)) {
@@ -301,13 +299,14 @@ function normalizeCard(card) {
         m.energy = isRaiche ? 10 : 15;
       }
 
-      // 開局或存活回合解鎖解析 (只有明確提到經過/存活/開局 X局或回合後解鎖，才設定 unlockAfterTurns)
+      // 開局或存活回合解鎖解析（所有解鎖回合扣減一回合）
       if (sm.includes("回合") || sm.includes("局")) {
         const cnNums = { "一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10 };
         const turnMatch = sm.match(/(?:存活|開局|經過)?\s*([0-9]+|[一二兩三四五六七八九十]+)\s*(?:局|回合)(?:後)?(?:才)?解鎖/);
         if (turnMatch) {
           const val = turnMatch[1];
-          m.unlockAfterTurns = cnNums[val] !== undefined ? cnNums[val] : parseInt(val);
+          const raw = cnNums[val] !== undefined ? cnNums[val] : parseInt(val);
+          m.unlockAfterTurns = Math.max(0, raw - 1);
         }
       }
 
@@ -360,6 +359,13 @@ function loadCustomCards() {
             geilaoCard.moves = JSON.parse(JSON.stringify(geilaoDef.moves));
           }
         }
+
+        // 清除任何可能殘留的生氣拳
+        parsed.forEach((c) => {
+          if (Array.isArray(c.moves)) {
+            c.moves = c.moves.filter((m) => m && m.name !== "生氣拳");
+          }
+        });
 
         // 合併預設卡牌中尚未存在的卡牌
         defaultCards.forEach((defCard) => {
@@ -442,7 +448,751 @@ function triggerScreenShake() {
   }, 600);
 }
 
+// 徹底還原卡牌面板與招式文字，確保亂碼效果結束後不殘留任何亂碼！
+function restoreCardPanelDisplay(target) {
+  if (target === "opponent") {
+    opponentGlitchTurns = 0;
+    opponentMovesScrambled = false;
+    const oppPanel = document.querySelector("#opponentCardPanel");
+    if (oppPanel) {
+      oppPanel.classList.remove("glitched-card");
+      // 徹底還原所有標籤文字（避免 dt 與 energy-label 被亂碼永久竄改）
+      const dtList = oppPanel.querySelectorAll("dt");
+      const dtLabels = ["迪克拉", "查克拉", "防禦", "血量"];
+      dtList.forEach((dt, i) => {
+        if (dtLabels[i]) dt.textContent = dtLabels[i];
+      });
+      const energyLabel = oppPanel.querySelector(".energy-label");
+      if (energyLabel) energyLabel.textContent = "噁心能量條";
+      const energyVal = oppPanel.querySelector("#opponentEnergyValue");
+      if (energyVal) energyVal.textContent = opponentEnergy >= 100 ? "滿了" : `${opponentEnergy}%`;
+    }
+
+    if (opponentActiveCard) {
+      const oppNameEl = document.querySelector("#opponentCardName");
+      if (oppNameEl) oppNameEl.textContent = opponentActiveCard.name || "";
+      const oppDikraEl = document.querySelector("#opponentDikra");
+      if (oppDikraEl) oppDikraEl.textContent = opponentActiveCard.dikra || "";
+      const oppChakraEl = document.querySelector("#opponentChakra");
+      if (oppChakraEl) oppChakraEl.textContent = opponentActiveCard.chakra || "";
+      const oppDefEl = document.querySelector("#opponentDefense");
+      if (oppDefEl) oppDefEl.textContent = opponentStatus.defense;
+      const oppHpEl = document.querySelector("#opponentHealth");
+      if (oppHpEl) oppHpEl.textContent = opponentHP;
+      const oppPassiveEl = document.querySelector("#opponentPassive");
+      if (oppPassiveEl) oppPassiveEl.textContent = opponentActiveCard.passive || "";
+
+      renderOpponentMoves();
+    }
+  } else {
+    playerGlitchTurns = 0;
+    const pPanel = document.querySelector("#cardPanel");
+    if (pPanel) {
+      pPanel.classList.remove("glitched-card");
+      const dtList = pPanel.querySelectorAll("dt");
+      const dtLabels = ["迪克拉", "查克拉", "防禦", "血量"];
+      dtList.forEach((dt, i) => {
+        if (dtLabels[i]) dt.textContent = dtLabels[i];
+      });
+      const energyLabel = pPanel.querySelector(".energy-label");
+      if (energyLabel) energyLabel.textContent = "噁心能量條";
+      const energyVal = pPanel.querySelector("#energyValue");
+      if (energyVal) energyVal.textContent = energy >= 100 ? "滿了" : `${energy}%`;
+    }
+
+    if (activePlayerCard) {
+      const nameEl = document.querySelector("#cardName");
+      if (nameEl) nameEl.textContent = activePlayerCard.name || "";
+      const dikraEl = document.querySelector("#cardDikra");
+      if (dikraEl) dikraEl.textContent = activePlayerCard.dikra || "";
+      const chakraEl = document.querySelector("#cardChakra");
+      if (chakraEl) chakraEl.textContent = activePlayerCard.chakra || "";
+      const defEl = document.querySelector("#playerDefense");
+      if (defEl) defEl.textContent = playerStatus.defense;
+      const hpEl = document.querySelector("#cardHealth");
+      if (hpEl) hpEl.textContent = playerHP;
+      const passiveEl = document.querySelector("#cardPassive");
+      if (passiveEl) passiveEl.textContent = activePlayerCard.passive || "";
+
+      renderMoves();
+    }
+  }
+}
+
+// 全面解除所有干擾效果與視覺效果（開局、換局、重新開始時調用）
+function clearAllBattleEffects() {
+  isNoiseActive = false;
+  opponentMovesScrambled = false;
+  playerGlitchTurns = 0;
+  opponentGlitchTurns = 0;
+
+  document.body.classList.remove("screen-noise-active");
+  document.body.classList.remove("screen-shake");
+
+  const pPanel = document.querySelector("#cardPanel");
+  if (pPanel) {
+    pPanel.classList.remove("glitched-card");
+    pPanel.classList.remove("card-noise-interference");
+    pPanel.classList.remove("dead");
+  }
+
+  const oppPanel = document.querySelector("#opponentCardPanel");
+  if (oppPanel) {
+    oppPanel.classList.remove("glitched-card");
+    oppPanel.classList.remove("card-noise-interference");
+    oppPanel.classList.remove("dead");
+  }
+
+  const pList = document.querySelector("#moveList");
+  if (pList) {
+    pList.classList.remove("card-noise-interference");
+  }
+
+  const oppList = document.querySelector("#opponentMoveList");
+  if (oppList) {
+    oppList.classList.remove("card-noise-interference");
+  }
+
+  const cutscene = document.querySelector("#raicheUltimateCutscene");
+  if (cutscene) {
+    cutscene.hidden = true;
+    cutscene.setAttribute("hidden", "");
+  }
+  const cutsceneVid = document.querySelector("#cutsceneVideo");
+  if (cutsceneVid) {
+    cutsceneVid.pause();
+    cutsceneVid.hidden = true;
+    cutsceneVid.setAttribute("hidden", "");
+  }
+  const cutsceneWrapper = document.querySelector("#cutsceneVideoWrapper");
+  if (cutsceneWrapper) {
+    cutsceneWrapper.hidden = true;
+    cutsceneWrapper.setAttribute("hidden", "");
+  }
+  const shoutout = document.querySelector("#ultimateSkillShoutout");
+  if (shoutout) {
+    shoutout.hidden = true;
+    shoutout.setAttribute("hidden", "");
+  }
+  const expOverlay = document.querySelector("#megaGreenExplosionOverlay");
+  if (expOverlay) {
+    expOverlay.hidden = true;
+    expOverlay.setAttribute("hidden", "");
+  }
+  const lockdown = document.querySelector("#inputLockdownOverlay");
+  if (lockdown) {
+    lockdown.hidden = true;
+    lockdown.setAttribute("hidden", "");
+  }
+
+  const pStackBadge = document.querySelector("#playerStackBadge");
+  if (pStackBadge) pStackBadge.remove();
+  const oStackBadge = document.querySelector("#oppStackBadge");
+  if (oStackBadge) oStackBadge.remove();
+  const cardPanelEl = document.querySelector("#cardPanel");
+  if (cardPanelEl) cardPanelEl.classList.remove("stacked-card-active");
+  const oppCardPanelEl = document.querySelector("#opponentCardPanel");
+  if (oppCardPanelEl) oppCardPanelEl.classList.remove("stacked-card-active");
+
+  restoreCardPanelDisplay("opponent");
+  restoreCardPanelDisplay("player");
+}
+
+// 判斷招式特殊機制是否標註 (絕招)
+function hasUltimateKeyword(move) {
+  if (!move || !move.specialMechanic) return false;
+  const sm = String(move.specialMechanic);
+  return sm.includes("絕招");
+}
+
+// 螢幕上方紅色大大的喊出招式名稱特效
+function triggerUltimateShoutout(moveName, onComplete) {
+  const shoutoutOverlay = document.querySelector("#ultimateSkillShoutout");
+  const titleEl = document.querySelector("#shoutoutMoveName");
+  if (!shoutoutOverlay || !titleEl) {
+    if (onComplete) onComplete();
+    return;
+  }
+
+  titleEl.textContent = moveName;
+  shoutoutOverlay.hidden = false;
+  shoutoutOverlay.removeAttribute("hidden");
+  triggerScreenShake();
+
+  setTimeout(() => {
+    shoutoutOverlay.hidden = true;
+    shoutoutOverlay.setAttribute("hidden", "");
+    if (onComplete) onComplete();
+  }, 1400);
+}
+
+// 雷切小弟弟 能量滿 終極領域展開全螢幕綠火閃電文字動畫
+function playRaicheUltimateCutscene(onFinish) {
+  const cutsceneOverlay = document.querySelector("#raicheUltimateCutscene");
+  const textBox = document.querySelector("#cutsceneTextContainer");
+  const skipBtn = document.querySelector("#cutsceneSkipBtn");
+  const lightningContainer = document.querySelector(".cutscene-lightning-canvas");
+  const fireContainer = document.querySelector(".cutscene-fire-fx");
+  if (!cutsceneOverlay || !textBox) {
+    if (onFinish) onFinish();
+    return;
+  }
+
+  cutsceneOverlay.hidden = false;
+  cutsceneOverlay.removeAttribute("hidden");
+  textBox.innerHTML = "";
+
+  let lightningCanvas = null;
+  let lightningCtx = null;
+  let lightningAnimInterval = null;
+
+  let fireCanvas = null;
+  let fireCtx = null;
+  let fireAnimId = null;
+
+  // 1. 動態綠色烈火粒子與火焰海系統
+  if (fireContainer) {
+    fireContainer.innerHTML = "";
+    fireCanvas = document.createElement("canvas");
+    fireCanvas.width = window.innerWidth;
+    fireCanvas.height = window.innerHeight;
+    fireCanvas.style.position = "absolute";
+    fireCanvas.style.inset = "0";
+    fireCanvas.style.pointerEvents = "none";
+    fireCanvas.style.zIndex = "1";
+    fireContainer.appendChild(fireCanvas);
+    fireCtx = fireCanvas.getContext("2d");
+
+    const flameCount = 75;
+    const flames = [];
+    for (let i = 0; i < flameCount; i++) {
+      flames.push({
+        x: Math.random() * fireCanvas.width,
+        y: fireCanvas.height * (0.6 + Math.random() * 0.4),
+        radius: Math.random() * 24 + 10,
+        speedY: Math.random() * 4 + 3,
+        speedX: (Math.random() - 0.5) * 3,
+        life: Math.random() * 1,
+        decay: Math.random() * 0.015 + 0.008,
+        color: Math.random() < 0.25 ? "#ccffcc" : (Math.random() < 0.75 ? "#00ff00" : "#10bb20")
+      });
+    }
+
+    let flameTime = 0;
+    const renderFire = () => {
+      if (finished || !fireCtx) return;
+      fireCtx.clearRect(0, 0, fireCanvas.width, fireCanvas.height);
+      flameTime += 0.04;
+
+      const w = fireCanvas.width;
+      const h = fireCanvas.height;
+
+      // 底部洶湧綠焰波浪
+      fireCtx.save();
+      const grad = fireCtx.createLinearGradient(0, h, 0, h * 0.45);
+      grad.addColorStop(0, "rgba(0, 255, 0, 0.75)");
+      grad.addColorStop(0.35, "rgba(0, 220, 20, 0.5)");
+      grad.addColorStop(0.7, "rgba(0, 120, 10, 0.25)");
+      grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+      fireCtx.fillStyle = grad;
+      fireCtx.beginPath();
+      fireCtx.moveTo(0, h);
+      for (let x = 0; x <= w; x += 25) {
+        const wave1 = Math.sin(x * 0.012 + flameTime * 3) * 45;
+        const wave2 = Math.cos(x * 0.025 - flameTime * 2.2) * 30;
+        const wave3 = Math.sin(x * 0.006 + flameTime * 1.5) * 20;
+        const y = h * 0.75 + wave1 + wave2 + wave3;
+        fireCtx.lineTo(x, y);
+      }
+      fireCtx.lineTo(w, h);
+      fireCtx.closePath();
+      fireCtx.fill();
+      fireCtx.restore();
+
+      // 升騰燃燒的火焰粒子與火星
+      flames.forEach((f) => {
+        f.y -= f.speedY;
+        f.x += f.speedX + Math.sin(flameTime * 2 + f.y * 0.015) * 2;
+        f.life -= f.decay;
+        f.radius *= 0.985;
+
+        if (f.life <= 0 || f.y < h * 0.15) {
+          f.x = Math.random() * fireCanvas.width;
+          f.y = fireCanvas.height + Math.random() * 20;
+          f.radius = Math.random() * 24 + 10;
+          f.speedY = Math.random() * 5 + 3.5;
+          f.speedX = (Math.random() - 0.5) * 3;
+          f.life = 1;
+        }
+
+        fireCtx.save();
+        fireCtx.globalAlpha = Math.max(0, f.life * 0.9);
+        fireCtx.fillStyle = f.color;
+        fireCtx.shadowColor = "#00ff00";
+        fireCtx.shadowBlur = 18;
+        fireCtx.beginPath();
+        fireCtx.arc(f.x, f.y, Math.max(1, f.radius), 0, Math.PI * 2);
+        fireCtx.fill();
+        fireCtx.restore();
+      });
+
+      fireAnimId = requestAnimationFrame(renderFire);
+    };
+
+    fireAnimId = requestAnimationFrame(renderFire);
+  }
+
+  // 2. 動態綠色閃電系統
+  if (lightningContainer) {
+    lightningContainer.innerHTML = "";
+    lightningCanvas = document.createElement("canvas");
+    lightningCanvas.width = window.innerWidth;
+    lightningCanvas.height = window.innerHeight;
+    lightningCanvas.style.position = "absolute";
+    lightningCanvas.style.inset = "0";
+    lightningCanvas.style.pointerEvents = "none";
+    lightningCanvas.style.zIndex = "2";
+    lightningContainer.appendChild(lightningCanvas);
+    lightningCtx = lightningCanvas.getContext("2d");
+
+    const drawBolt = (x1, y1, x2, y2, displace, depth) => {
+      if (depth === 0) {
+        lightningCtx.beginPath();
+        lightningCtx.moveTo(x1, y1);
+        lightningCtx.lineTo(x2, y2);
+        lightningCtx.strokeStyle = "#00ff00";
+        lightningCtx.lineWidth = Math.random() * 2.5 + 1.5;
+        lightningCtx.shadowColor = "#55ff55";
+        lightningCtx.shadowBlur = 15;
+        lightningCtx.stroke();
+        return;
+      }
+      const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * displace;
+      const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * displace;
+      drawBolt(x1, y1, midX, midY, displace / 1.8, depth - 1);
+      drawBolt(midX, midY, x2, y2, displace / 1.8, depth - 1);
+      if (Math.random() < 0.28) {
+        const branchX = midX + (Math.random() - 0.5) * displace * 0.8;
+        const branchY = midY + (Math.random() - 0.5) * displace * 0.8;
+        drawBolt(midX, midY, branchX, branchY, displace / 2, depth - 2);
+      }
+    };
+
+    lightningAnimInterval = setInterval(() => {
+      if (finished || !lightningCtx) return;
+      lightningCtx.clearRect(0, 0, lightningCanvas.width, lightningCanvas.height);
+      if (Math.random() < 0.85) {
+        const startX = Math.random() * lightningCanvas.width;
+        const startY = 0;
+        const endX = startX + (Math.random() - 0.5) * 400;
+        const endY = lightningCanvas.height;
+        drawBolt(startX, startY, endX, endY, 180, 5);
+      }
+    }, 120);
+  }
+
+  const lines = [
+    { text: "自從習得冥王炮", type: "normal", delay: 900 },
+    { text: "我便努力增強", type: "normal", delay: 900 },
+    { text: "我花40生的時間", type: "normal", delay: 900 },
+    { text: "每天Drive、嘟、雷切、做、看好康、登dua郎", type: "normal", delay: 1300 },
+    { text: "努力掌握迪克拉如自己身體", type: "normal", delay: 1000 },
+    { text: "如今我的技術已晉級", type: "normal", delay: 1000 },
+    { text: "接受我的終極奧義", type: "normal", delay: 1000 },
+    { text: "領域展開！！", type: "highlight", delay: 1200 },
+    { text: "超究極", type: "climax", delay: 550 },
+    { text: "冥王", type: "climax", delay: 550 },
+    { text: "雷切杰刀", type: "climax", delay: 550 },
+    { text: "拔不出來術", type: "climax", delay: 650 },
+    { text: "登登登dua郎之炮！！！", type: "climax", delay: 1800 }
+  ];
+
+  let currentIndex = 0;
+  let timer = null;
+  let finished = false;
+  const videoEl = document.querySelector("#cutsceneVideo");
+
+  const endCutscene = () => {
+    if (finished) return;
+    finished = true;
+    if (timer) clearTimeout(timer);
+    if (videoEl) {
+      videoEl.pause();
+      videoEl.onended = null;
+      videoEl.onerror = null;
+      videoEl.hidden = true;
+      videoEl.setAttribute("hidden", "");
+    }
+    const videoWrapper = document.querySelector("#cutsceneVideoWrapper");
+    if (videoWrapper) {
+      videoWrapper.hidden = true;
+      videoWrapper.setAttribute("hidden", "");
+    }
+    if (lightningAnimInterval) clearInterval(lightningAnimInterval);
+    if (fireAnimId) cancelAnimationFrame(fireAnimId);
+    if (lightningContainer) lightningContainer.innerHTML = "";
+    if (fireContainer) fireContainer.innerHTML = "";
+    cutsceneOverlay.hidden = true;
+    cutsceneOverlay.setAttribute("hidden", "");
+    triggerScreenShake();
+    if (onFinish) onFinish();
+  };
+
+  if (skipBtn) {
+    skipBtn.onclick = endCutscene;
+  }
+
+  // 文字播完後，在離開黑色背景前播放 冥王動畫1080畫質.mp4
+  const playVideoPhase = () => {
+    if (finished) return;
+    textBox.innerHTML = "";
+
+    if (!videoEl) {
+      endCutscene();
+      return;
+    }
+
+    const videoWrapper = document.querySelector("#cutsceneVideoWrapper");
+    if (videoWrapper) {
+      videoWrapper.hidden = false;
+      videoWrapper.removeAttribute("hidden");
+    }
+
+    // 確保指向最新的高畫質影片來源
+    if (videoEl.getAttribute("src") !== "冥王動畫1080畫質.mp4") {
+      videoEl.src = "冥王動畫1080畫質.mp4";
+    }
+
+    videoEl.hidden = false;
+    videoEl.removeAttribute("hidden");
+    videoEl.currentTime = 0;
+
+    videoEl.onended = () => {
+      endCutscene();
+    };
+
+    videoEl.onerror = () => {
+      console.warn("冥王動畫載入失敗，自動跳過");
+      endCutscene();
+    };
+
+    const playPromise = videoEl.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((err) => {
+        console.warn("影片自動播放受阻，嘗試靜音播放:", err);
+        videoEl.muted = true;
+        videoEl.play().catch((e) => {
+          console.error("無法播放影片，自動推進:", e);
+          endCutscene();
+        });
+      });
+    }
+  };
+
+  const showNextLine = () => {
+    if (finished) return;
+    if (currentIndex >= lines.length) {
+      playVideoPhase();
+      return;
+    }
+
+    const item = lines[currentIndex];
+    const isLastLine = currentIndex === lines.length - 1;
+
+    // 高潮字詞或最後一句單獨清空居中展示
+    if (item.type.includes("climax") || item.type.includes("highlight") || isLastLine) {
+      textBox.innerHTML = "";
+    } else if (textBox.children && textBox.children.length >= 4) {
+      if (textBox.firstChild) textBox.removeChild(textBox.firstChild);
+    }
+
+    const p = document.createElement("p");
+    p.className = `cutscene-line ${item.type}${isLastLine ? " last-line" : ""}`;
+    p.textContent = item.text;
+    textBox.appendChild(p);
+
+    if (item.type === "highlight" || item.type === "climax") {
+      triggerScreenShake();
+    }
+
+    currentIndex++;
+    timer = setTimeout(showNextLine, item.delay);
+  };
+
+  showNextLine();
+}
+
+// 5秒超華麗綠色終極連鎖大爆炸（對方卡牌上方連續核爆，全域按鍵鎖定5秒）
+function playMegaGreenExplosion(targetEl, onFinish) {
+  const overlay = document.querySelector("#megaGreenExplosionOverlay");
+  const canvas = document.querySelector("#megaExplosionCanvas");
+  const flashBg = document.querySelector(".explosion-flash-bg");
+  const lockdownOverlay = document.querySelector("#inputLockdownOverlay");
+
+  // 1. 立即鎖定全域按鍵與點擊，讓玩家不能按任何按鍵
+  if (lockdownOverlay) {
+    lockdownOverlay.hidden = false;
+    lockdownOverlay.removeAttribute("hidden");
+  }
+  document.querySelectorAll("button").forEach((btn) => (btn.disabled = true));
+
+  if (!overlay || !canvas) {
+    setTimeout(() => {
+      if (lockdownOverlay) {
+        lockdownOverlay.hidden = true;
+        lockdownOverlay.setAttribute("hidden", "");
+      }
+      if (onFinish) onFinish();
+    }, 5000);
+    return;
+  }
+
+  overlay.hidden = false;
+  overlay.removeAttribute("hidden");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext("2d");
+
+  // 計算目標卡牌中心坐標（若有卡牌元素則精準鎖定該卡牌中心）
+  let targetX = window.innerWidth / 2;
+  let targetY = window.innerHeight * 0.35;
+  if (targetEl) {
+    const rect = targetEl.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      targetX = rect.left + rect.width / 2;
+      targetY = rect.top + rect.height / 2;
+    }
+    targetEl.classList.add("card-under-mega-explosion");
+  }
+
+  const startTime = performance.now();
+  const duration = 5000; // 嚴格 5 秒
+  let animId = null;
+
+  const particles = [];
+  const shockwaves = [];
+  const stageDetonated = [false, false, false, false, false, false];
+  let supernovaDetonated = false;
+
+  // 爆破輔助函數
+  const spawnBurst = (x, y, count, baseRadius, speedMult, colors) => {
+    shockwaves.push({
+      x,
+      y,
+      radius: 12,
+      maxRadius: baseRadius * 2.8,
+      speed: 14 * speedMult,
+      alpha: 1,
+      color: colors[0] || "#00ff00",
+    });
+
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = (Math.random() * 8.5 + 3.5) * speedMult;
+      particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        radius: Math.random() * 8 + 3,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: 1,
+        decay: Math.random() * 0.012 + 0.007,
+        gravity: 0.1,
+        spark: Math.random() < 0.45,
+      });
+    }
+
+    triggerScreenShake();
+  };
+
+  const render = (now) => {
+    const elapsed = now - startTime;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Phase 1: 0 ~ 800ms 空間塌縮光芒與聚能
+    if (elapsed < 800) {
+      const p = elapsed / 800;
+      ctx.save();
+      for (let i = 0; i < 10; i++) {
+        const angle = (i * Math.PI) / 5 + elapsed * 0.007;
+        const dist = (1 - p) * 260 + 20;
+        ctx.beginPath();
+        ctx.moveTo(targetX + Math.cos(angle) * dist, targetY + Math.sin(angle) * dist);
+        ctx.lineTo(targetX, targetY);
+        ctx.strokeStyle = i % 2 === 0 ? "#00ff00" : "#aaffaa";
+        ctx.lineWidth = 3.5;
+        ctx.shadowColor = "#00ff00";
+        ctx.shadowBlur = 18;
+        ctx.stroke();
+      }
+
+      ctx.beginPath();
+      ctx.arc(targetX, targetY, p * 40 + 6, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "#39ff14";
+      ctx.shadowBlur = 35;
+      ctx.fill();
+      ctx.restore();
+
+      if (flashBg) flashBg.style.opacity = `${p * 0.35}`;
+    }
+
+    // Phase 2: 800ms ~ 2300ms 連環 6 波劇烈綠焰大爆炸
+    const stageTimes = [800, 1050, 1300, 1550, 1800, 2050];
+    stageTimes.forEach((st, idx) => {
+      if (elapsed >= st && !stageDetonated[idx]) {
+        stageDetonated[idx] = true;
+        const offsetX = (Math.random() - 0.5) * 140;
+        const offsetY = (Math.random() - 0.5) * 90;
+        spawnBurst(
+          targetX + offsetX,
+          targetY + offsetY,
+          75,
+          110,
+          1.25,
+          ["#00ff00", "#55ff55", "#39ff14", "#ffffff", "#00e676"]
+        );
+        if (flashBg) {
+          flashBg.style.opacity = "0.75";
+          setTimeout(() => { if (flashBg) flashBg.style.opacity = "0.2"; }, 90);
+        }
+      }
+    });
+
+    // Phase 3: 2300ms 終極毀滅級核爆大爆炸
+    if (elapsed >= 2300 && !supernovaDetonated) {
+      supernovaDetonated = true;
+      spawnBurst(targetX, targetY, 360, 280, 2.4, [
+        "#ffffff",
+        "#00ff00",
+        "#76ff03",
+        "#39ff14",
+        "#b9f6ca",
+        "#00e676",
+      ]);
+
+      if (flashBg) {
+        flashBg.style.opacity = "1";
+        setTimeout(() => { if (flashBg) flashBg.style.opacity = "0.35"; }, 220);
+      }
+      triggerScreenShake();
+      setTimeout(triggerScreenShake, 250);
+      setTimeout(triggerScreenShake, 550);
+    }
+
+    // 繪製巨大沖天能量光柱 (2300ms ~ 3700ms)
+    if (elapsed >= 2300 && elapsed < 3700) {
+      const beamP = 1 - (elapsed - 2300) / 1400;
+      ctx.save();
+      const beamW = beamP * 150 + 25;
+      const beamGrad = ctx.createLinearGradient(targetX - beamW / 2, 0, targetX + beamW / 2, 0);
+      beamGrad.addColorStop(0, "rgba(0, 255, 0, 0)");
+      beamGrad.addColorStop(0.25, "rgba(0, 255, 0, 0.8)");
+      beamGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.98)");
+      beamGrad.addColorStop(0.75, "rgba(0, 255, 0, 0.8)");
+      beamGrad.addColorStop(1, "rgba(0, 255, 0, 0)");
+
+      ctx.fillStyle = beamGrad;
+      ctx.fillRect(targetX - beamW / 2, 0, beamW, canvas.height);
+      ctx.restore();
+    }
+
+    // 更新並繪製衝擊波光環
+    shockwaves.forEach((sw, i) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = sw.color;
+      ctx.lineWidth = Math.max(1, (1 - sw.radius / sw.maxRadius) * 12);
+      ctx.globalAlpha = Math.max(0, sw.alpha);
+      ctx.shadowColor = sw.color;
+      ctx.shadowBlur = 22;
+      ctx.stroke();
+      ctx.restore();
+
+      sw.radius += sw.speed;
+      sw.alpha -= 0.022;
+      if (sw.alpha <= 0 || sw.radius >= sw.maxRadius) {
+        shockwaves.splice(i, 1);
+      }
+    });
+
+    // 更新並繪製能量碎片與火星粒子
+    particles.forEach((p, i) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(0.6, p.radius * p.alpha), 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = Math.max(0, p.alpha);
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = p.spark ? 16 : 8;
+      ctx.fill();
+      ctx.restore();
+
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity;
+      p.vx *= 0.985;
+      p.vy *= 0.985;
+      p.alpha -= p.decay;
+
+      if (p.alpha <= 0) {
+        particles.splice(i, 1);
+      }
+    });
+
+    // Phase 4: 3700ms ~ 5000ms 漫天飄散翡翠餘燼火星
+    if (elapsed >= 3700 && Math.random() < 0.45 && particles.length < 160) {
+      particles.push({
+        x: targetX + (Math.random() - 0.5) * 180,
+        y: targetY + (Math.random() - 0.5) * 110,
+        vx: (Math.random() - 0.5) * 2,
+        vy: -Math.random() * 2.2 - 1,
+        radius: Math.random() * 5 + 2,
+        color: Math.random() < 0.5 ? "#00ff00" : "#aaffaa",
+        alpha: 0.9,
+        decay: 0.015,
+        gravity: -0.015,
+        spark: true,
+      });
+    }
+
+    if (elapsed < duration) {
+      animId = requestAnimationFrame(render);
+    } else {
+      // 5 秒結束：清理動畫並解鎖所有按鍵
+      if (animId) cancelAnimationFrame(animId);
+      overlay.hidden = true;
+      overlay.setAttribute("hidden", "");
+      if (flashBg) flashBg.style.opacity = "0";
+      if (targetEl) targetEl.classList.remove("card-under-mega-explosion");
+      if (lockdownOverlay) {
+        lockdownOverlay.hidden = true;
+        lockdownOverlay.setAttribute("hidden", "");
+      }
+      if (onFinish) onFinish();
+    }
+  };
+
+  animId = requestAnimationFrame(render);
+}
+
+// 將對手（電腦）的招式順序隨機洗牌打亂
+function scrambleOpponentMoves() {
+  opponentMovesScrambled = true;
+  if (Array.isArray(opponentMoves) && opponentMoves.length > 1) {
+    for (let i = opponentMoves.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [opponentMoves[i], opponentMoves[j]] = [opponentMoves[j], opponentMoves[i]];
+    }
+  }
+  renderOpponentMoves();
+}
+
 function startBattleSession() {
+  clearAllBattleEffects(); // 重新開始一局後所有視覺與干擾效果解除
   cards = loadCustomCards(); // 確保每次開局載入最新卡牌設定
   gameOver = false;
   energy = 0;
@@ -457,6 +1207,12 @@ function startBattleSession() {
   opponentHP = 0;
   playerMaxHP = 0;
   opponentMaxHP = 0;
+  playerStackedCard = null;
+  playerStackedHP = 0;
+  playerStackedMaxHP = 0;
+  opponentStackedCard = null;
+  opponentStackedHP = 0;
+  opponentStackedMaxHP = 0;
   starter = "player";
   currentTurn = "player";
   playerStatus = { defense: 0, damageHalf: false, stunned: false };
@@ -467,8 +1223,6 @@ function startBattleSession() {
   opponentGlobalDamageMult = 1;
   playerGeilaoApproached = false;
   opponentGeilaoApproached = false;
-  isNoiseActive = false;
-  document.body.classList.remove("screen-noise-active");
 
   if (energyFill) energyFill.style.width = "0%";
   if (energyValue) energyValue.textContent = "0%";
@@ -486,19 +1240,6 @@ function startBattleSession() {
   }
   pendingDomainMove = null;
 
-  playerGlitchTurns = 0;
-  opponentGlitchTurns = 0;
-  const oppPanel = document.querySelector("#opponentCardPanel");
-  if (oppPanel) {
-    oppPanel.classList.remove("glitched-card");
-    oppPanel.classList.remove("card-noise-interference");
-  }
-  const pPanel = document.querySelector("#cardPanel");
-  if (pPanel) {
-    pPanel.classList.remove("glitched-card");
-    pPanel.classList.remove("card-noise-interference");
-  }
-
   if (drawButton) {
     drawButton.textContent = "抽牌";
     drawButton.disabled = false;
@@ -512,6 +1253,7 @@ function startBattleSession() {
 
 if (drawButton) {
   drawButton.addEventListener("click", () => {
+    clearAllBattleEffects(); // 發牌開始新局時清除所有殘留干擾效果
     // 洗牌並將所有卡牌盡可能發完；若卡牌數量為奇數，隨機選一張不發，剩下平分給雙方
     const pool = cards.map((c) => JSON.parse(JSON.stringify(c))).sort(() => Math.random() - 0.5);
     let discardedCardName = "";
@@ -799,6 +1541,149 @@ function updateFieldDisplay() {
       opponentEmptyFieldSlot.style.display = "";
     }
   }
+
+  updateBattleCardsVisual();
+}
+
+// 建立雙卡疊牌時的完整技能清單（同時提供前排與底層兩張卡牌的所有技能）
+function createStackedBattleMoves(cardA, cardB) {
+  const getShortName = (card) => {
+    if (!card || !card.name) return "卡牌";
+    if (card.name.includes("Driver") || card.name.includes("八塊腹肌")) return "團長";
+    if (card.name.includes("林走狗") || card.name.includes("陳豆豆")) return "走狗";
+    if (card.name.includes("雷切")) return "雷切";
+    if (card.name.includes("給佬") || card.name.includes("姜敦硯")) return "姜敦硯";
+    return card.name.slice(0, 3);
+  };
+
+  const nameA = getShortName(cardA);
+  const nameB = getShortName(cardB);
+
+  const movesA = createBattleMoves(cardA).map((m) => ({
+    ...m,
+    ownerCard: cardA,
+    ownerLabel: nameA,
+  }));
+
+  const movesB = createBattleMoves(cardB).map((m) => ({
+    ...m,
+    ownerCard: cardB,
+    ownerLabel: nameB,
+  }));
+
+  return [...movesA, ...movesB];
+}
+
+// 我方疊牌切換前排主位與底層位置
+function swapPlayerStack() {
+  if (!playerStackedCard || !activePlayerCard) return;
+  const tempCard = activePlayerCard;
+  const tempHP = playerHP;
+  const tempMaxHP = playerMaxHP;
+
+  activePlayerCard = playerStackedCard;
+  playerHP = playerStackedHP;
+  playerMaxHP = playerStackedMaxHP;
+
+  playerStackedCard = tempCard;
+  playerStackedHP = tempHP;
+  playerStackedMaxHP = tempMaxHP;
+
+  playerMoves = createStackedBattleMoves(activePlayerCard, playerStackedCard);
+
+  updateBattleCardsVisual();
+  renderMoves();
+  triggerScreenShake();
+  updateTurnBadge(`🔄 疊牌主從切換！現在由【${activePlayerCard.name}】居於前排，【${playerStackedCard.name}】處於底層！`);
+}
+
+// 更新場上疊牌視覺（雙卡標籤、雙卡血量與雙卡名稱資訊）
+function updateBattleCardsVisual() {
+  // 我方戰鬥牌面板
+  const cardPanelEl = document.querySelector("#cardPanel");
+  if (cardPanelEl && activePlayerCard) {
+    let stackBadge = document.querySelector("#playerStackBadge");
+    if (playerStackedCard) {
+      cardPanelEl.classList.add("stacked-card-active");
+      if (!stackBadge) {
+        stackBadge = document.createElement("div");
+        stackBadge.id = "playerStackBadge";
+        stackBadge.className = "stacked-card-badge";
+        const titleRow = cardPanelEl.querySelector(".card-title-row");
+        if (titleRow) cardPanelEl.insertBefore(stackBadge, titleRow);
+        else cardPanelEl.prepend(stackBadge);
+      }
+      stackBadge.innerHTML = `
+        <span class="stack-badge-title">🥞 雙卡疊牌出戰中</span>
+        <span class="stack-badge-info">[底層: ${playerStackedCard.name} (HP ${playerStackedHP})]</span>
+        <button type="button" class="stack-swap-btn" id="swapPlayerStackBtn">🔄 切換主位</button>
+      `;
+      const swapBtn = stackBadge.querySelector("#swapPlayerStackBtn");
+      if (swapBtn) {
+        swapBtn.onclick = (e) => {
+          e.stopPropagation();
+          swapPlayerStack();
+        };
+      }
+    } else {
+      cardPanelEl.classList.remove("stacked-card-active");
+      if (stackBadge) stackBadge.remove();
+    }
+
+    const nameEl = document.querySelector("#cardName");
+    if (nameEl) {
+      nameEl.textContent = playerStackedCard ? `${activePlayerCard.name} ⚡ ${playerStackedCard.name}` : activePlayerCard.name;
+    }
+    const hpEl = document.querySelector("#cardHealth");
+    if (hpEl) {
+      hpEl.textContent = playerStackedCard ? `${playerHP} (+${playerStackedHP} 疊牌)` : playerHP;
+    }
+    const passiveEl = document.querySelector("#cardPassive");
+    if (passiveEl) {
+      passiveEl.textContent = playerStackedCard
+        ? `【主位】${activePlayerCard.passive || ""} ｜【疊牌支援】${playerStackedCard.passive || ""}`
+        : (activePlayerCard.passive || "");
+    }
+  }
+
+  // 對手戰鬥牌面板
+  const oppCardPanelEl = document.querySelector("#opponentCardPanel");
+  if (oppCardPanelEl && opponentActiveCard) {
+    let oppStackBadge = document.querySelector("#oppStackBadge");
+    if (opponentStackedCard) {
+      oppCardPanelEl.classList.add("stacked-card-active");
+      if (!oppStackBadge) {
+        oppStackBadge = document.createElement("div");
+        oppStackBadge.id = "oppStackBadge";
+        oppStackBadge.className = "stacked-card-badge";
+        const oppTitleRow = oppCardPanelEl.querySelector(".card-title-row");
+        if (oppTitleRow) oppCardPanelEl.insertBefore(oppStackBadge, oppTitleRow);
+        else oppCardPanelEl.prepend(oppStackBadge);
+      }
+      oppStackBadge.innerHTML = `
+        <span class="stack-badge-title">🥞 對手雙卡疊牌出戰</span>
+        <span class="stack-badge-info">[底層: ${opponentStackedCard.name} (HP ${opponentStackedHP})]</span>
+      `;
+    } else {
+      oppCardPanelEl.classList.remove("stacked-card-active");
+      if (oppStackBadge) oppStackBadge.remove();
+    }
+
+    const oppNameEl = document.querySelector("#opponentCardName");
+    if (oppNameEl) {
+      oppNameEl.textContent = opponentStackedCard ? `${opponentActiveCard.name} ⚡ ${opponentStackedCard.name}` : opponentActiveCard.name;
+    }
+    const oppHpEl = document.querySelector("#opponentHealth");
+    if (oppHpEl) {
+      oppHpEl.textContent = opponentStackedCard ? `${opponentHP} (+${opponentStackedHP} 疊牌)` : opponentHP;
+    }
+    const oppPassiveEl = document.querySelector("#opponentPassive");
+    if (oppPassiveEl) {
+      oppPassiveEl.textContent = opponentStackedCard
+        ? `【主位】${opponentActiveCard.passive || ""} ｜【疊牌支援】${opponentStackedCard.passive || ""}`
+        : (opponentActiveCard.passive || "");
+    }
+  }
 }
 
 function updateTurnBadge(text) {
@@ -882,7 +1767,14 @@ function renderMoves() {
       lockTag = ` <span class="cd-tag">⏳ CD: ${move.cooldownRemaining} 回合</span>`;
     }
 
-    button.innerHTML = `<span>${move.key}：${move.name}${lockTag}</span><span class="move-energy">${formatMoveMeta(move, activePlayerCard)}</span>`;
+    let ownerPrefix = "";
+    if (playerStackedCard && move.ownerLabel) {
+      const isDriver = move.ownerLabel.includes("團長");
+      const badgeCls = isDriver ? "owner-driver" : "owner-lin";
+      ownerPrefix = `<span class="move-owner-badge ${badgeCls}">[${move.ownerLabel}]</span>`;
+    }
+
+    button.innerHTML = `<span>${ownerPrefix}${move.key}：${move.name}${lockTag}</span><span class="move-energy">${formatMoveMeta(move, move.ownerCard || activePlayerCard)}</span>`;
 
     const lockRemaining = isM1 ? 0 : Math.max(move.cooldownRemaining, move.unlockRemaining);
 
@@ -902,6 +1794,28 @@ function renderMoves() {
 
     moveList.appendChild(button);
   });
+
+  // 檢查是否所有招式都在冷卻或未解鎖中：若無招可出，自動進入防守蓄力並切換回合，避免介面卡死
+  const hasAvailableMove = playerMoves.some((move) => {
+    const isM1 = move.key === "M1" || move.key === "M1招" || (move.name && move.name.includes("靠近"));
+    const isGeilaoLocked = isPlayerGeilao && !playerGeilaoApproached && !isM1;
+    const lockRemaining = isM1 ? 0 : Math.max(move.cooldownRemaining, move.unlockRemaining);
+    return !lockRemaining && !isGeilaoLocked;
+  });
+
+  if (!hasAvailableMove && !gameOver && playerHP > 0 && currentTurn === "player") {
+    updateTurnBadge("⏳ 所有招式正在冷卻中！本回合進入蓄力防守狀態，準備交給對手回合...");
+    setTimeout(() => {
+      if (!gameOver && currentTurn === "player") {
+        if (starter === "opponent") decrementCooldowns();
+        currentTurn = "opponent";
+        updateTurnBadge("我方招式冷卻蓄力中，換對手回合！");
+        renderMoves();
+        renderOpponentMoves();
+        setTimeout(opponentTurn, 1000);
+      }
+    }, 1200);
+  }
 
   if (playerGlitchTurns > 0) {
     applyGlitchEffectToTarget("player", playerGlitchTurns);
@@ -935,7 +1849,14 @@ function renderOpponentMoves() {
       lockTag = ` <span class="cd-tag">⏳ CD: ${move.cooldownRemaining} 回合</span>`;
     }
 
-    item.innerHTML = `<span>${move.key}：${move.name}${lockTag}</span><span class="move-energy">${formatMoveMeta(move, opponentActiveCard)}</span>`;
+    let ownerPrefix = "";
+    if (opponentStackedCard && move.ownerLabel) {
+      const isDriver = move.ownerLabel.includes("團長");
+      const badgeCls = isDriver ? "owner-driver" : "owner-lin";
+      ownerPrefix = `<span class="move-owner-badge ${badgeCls}">[${move.ownerLabel}]</span>`;
+    }
+
+    item.innerHTML = `<span>${ownerPrefix}${move.key}：${move.name}${lockTag}</span><span class="move-energy">${formatMoveMeta(move, move.ownerCard || opponentActiveCard)}</span>`;
 
     const lockRemaining = isM1 ? 0 : Math.max(move.cooldownRemaining, move.unlockRemaining);
     if (lockRemaining > 0 || isGeilaoLocked) {
@@ -988,6 +1909,16 @@ function useMove(selectedMove) {
     return;
   }
 
+  if (hasUltimateKeyword(selectedMove)) {
+    triggerUltimateShoutout(selectedMove.name, () => {
+      executePlayerMove(selectedMove);
+    });
+  } else {
+    executePlayerMove(selectedMove);
+  }
+}
+
+function executePlayerMove(selectedMove) {
   // 只有「雷切小弟弟」的領域展開才可以用選的（擇一發動做死、傳說對接、視獄偽境、真Dixx不斷、迪克崩壞、(Censored)）
   const isRaicheCard = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("雷切小弟弟");
   if (isRaicheCard && selectedMove.name && selectedMove.name.includes("領域展開")) {
@@ -1002,10 +1933,36 @@ function useMove(selectedMove) {
   // 雷切小弟弟 G招：爸爸堅強又金色狂風...（對手全字元亂碼一局）
   if (isRaicheCard && ((selectedMove.key && selectedMove.key.toUpperCase() === "G") || (selectedMove.name && selectedMove.name.includes("爸爸堅強")))) {
     applyGlitchEffectToTarget("opponent", 1);
+    scrambleOpponentMoves(); // 對方是電腦，將他招式的排列打亂！
     if (activePlayerCard.hasEnergyMeter) {
       addEnergy(selectedMove.energy || 10);
+      if (energy >= 100) {
+        energy = 0;
+        if (energyFill) energyFill.style.width = "0%";
+        if (energyValue) energyValue.textContent = "0%";
+        playRaicheUltimateCutscene(() => {
+          const targetCardEl = document.querySelector("#opponentCardPanel");
+          playMegaGreenExplosion(targetCardEl, () => {
+            updateTurnBadge('💥【雷切小弟弟】終極奧義核爆！【領域展開，超究極冥王拔不出來術登登登dua郎之炮】！全場灰飛煙滅！');
+            applyDamage("opponent", 999999999, playerStatus, opponentStatus);
+            selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 1;
+            selectedMove.justUsed = true;
+            if (starter === "opponent") decrementCooldowns();
+            if (opponentHP <= 0) {
+              handleOpponentCardDefeated();
+              return;
+            }
+            currentTurn = "opponent";
+            renderMoves();
+            renderOpponentMoves();
+            setTimeout(opponentTurn, 1000);
+          });
+        });
+        return;
+      }
     }
-    selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 2;
+    selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 1;
+    selectedMove.justUsed = true; // 正在進行的回合出招，當輪結束不計入冷卻完成
     if (starter === "opponent") decrementCooldowns();
     if (playerGlitchTurns > 0) {
       playerGlitchTurns--;
@@ -1021,15 +1978,20 @@ function useMove(selectedMove) {
   }
 
   // 對「黃楷程」Z招與M1招式機制處理
-  if (activePlayerCard && activePlayerCard.name === "黃楷程") {
+  const isPlayerHuang = (activePlayerCard && activePlayerCard.name.includes("黃楷程")) ||
+    (playerStackedCard && playerStackedCard.name.includes("黃楷程"));
+  if (isPlayerHuang) {
     if (selectedMove.key === "Z" || selectedMove.key === "Z招" || selectedMove.name === "切換腳切") {
+      const kickMatch = (selectedMove.specialMechanic && selectedMove.specialMechanic.match(/腳切傷害\s*(\d+)/)) || [null, "5000"];
+      const kickDamage = kickMatch[1] || "5000";
       const m1Move = playerMoves.find((m) => m.key === "M1");
       if (m1Move) {
         m1Move.name = "腳切";
-        m1Move.damage = "2000";
+        m1Move.damage = kickDamage;
       }
       selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 2;
-      updateTurnBadge("🥋【黃楷程】切換為「腳切」姿態！M1 傷害提升至 2000！");
+      selectedMove.justUsed = true;
+      updateTurnBadge(`🥋【黃楷程】切換為「腳切」姿態！M1 傷害提升至 ${kickDamage}！`);
       renderMoves();
       if (starter === "opponent") decrementCooldowns();
       if (playerGlitchTurns > 0) {
@@ -1043,8 +2005,10 @@ function useMove(selectedMove) {
       setTimeout(() => {
         const m1 = playerMoves.find((m) => m.key === "M1");
         if (m1) {
+          const cardRef = (activePlayerCard && activePlayerCard.name.includes("黃楷程")) ? activePlayerCard : playerStackedCard;
+          const origM1 = (cardRef && cardRef.moves && cardRef.moves.find((m) => m.key === "M1")) || { damage: "10000" };
           m1.name = "雷切";
-          m1.damage = "600";
+          m1.damage = origM1.damage || "10000";
           renderMoves();
         }
       }, 0);
@@ -1110,11 +2074,15 @@ function useMove(selectedMove) {
       updateTurnBadge(`👐【給佬®+姜敦硯】塗滿雙手精X掰開對手的頭！造成 ${damage} 傷害！對手當前牌傷害再次除以 3（現為 ${(opponentCardDamageMult * 100).toFixed(0)}%）！`);
     } else if (selectedMove.key === "C" || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("雜訊"))) {
       isNoiseActive = true;
-      document.body.classList.add("screen-noise-active");
+      // 任何視覺效果只賦予對方（對手側），我方畫面絕不加全螢幕雜訊
       const oppPanel = document.querySelector("#opponentCardPanel");
       if (oppPanel) oppPanel.classList.add("card-noise-interference");
+      const oppList = document.querySelector("#opponentMoveList");
+      if (oppList) oppList.classList.add("card-noise-interference");
+      // 如果對方是電腦，則將他招式的排列打亂！
+      scrambleOpponentMoves();
       triggerScreenShake();
-      updateTurnBadge(`🔊【給佬®+姜敦硯】把你耳朵掰開塞Dixx進去！造成 ${damage} 傷害！對手畫面出現雜訊干擾，直到這張牌陣亡！`);
+      updateTurnBadge(`🔊【給佬®+姜敦硯】把你耳朵掰開塞Dixx進去！造成 ${damage} 傷害！對手（電腦）受到強烈雜訊干擾，招式排列被徹底打亂！`);
     } else if (selectedMove.key === "V" || selectedMove.name.includes("自己掰開")) {
       opponentGlobalDamageMult = 0.25;
       triggerScreenShake();
@@ -1129,10 +2097,12 @@ function useMove(selectedMove) {
   }
 
   // 林走狗 特殊招式機制 (玩家施展)
-  const isPlayerLin = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("林走狗");
+  const isPlayerLin = (activePlayerCard && (activePlayerCard.name.includes("林走狗") || activePlayerCard.name.includes("陳豆豆"))) ||
+    (playerStackedCard && (playerStackedCard.name.includes("林走狗") || playerStackedCard.name.includes("陳豆豆")));
   if (isPlayerLin || (selectedMove.specialMechanic && (selectedMove.specialMechanic.includes("姜敦硯必殺") || selectedMove.specialMechanic.includes("Driver團長")))) {
     if (selectedMove.name === "反掰開" || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("姜敦硯必殺"))) {
-      const isOppGeilao = opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"));
+      const isOppGeilao = (opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"))) ||
+        (opponentStackedCard && (opponentStackedCard.name.includes("給佬") || opponentStackedCard.name.includes("姜敦硯")));
       if (isOppGeilao) {
         damage = 999999999999999;
         triggerScreenShake();
@@ -1141,21 +2111,74 @@ function useMove(selectedMove) {
         updateTurnBadge(`🐕【林走狗】施展【反掰開】！造成 ${damage} 傷害！（對手不是姜敦硯，未觸發必殺）`);
       }
     } else if (selectedMove.name === "召喚團長" || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("Driver團長"))) {
-      // 奪取或加入 Driver 團長至我方手牌備戰區
-      const oppDriverIdx = opponentHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
-      if (oppDriverIdx !== -1) {
-        opponentHandCards.splice(oppDriverIdx, 1);
-      }
-      const driverDef = defaultCards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
-      if (driverDef) {
-        const summonedDriver = JSON.parse(JSON.stringify(driverDef));
-        summonedDriver.health = String(summonedDriver.health || "19999");
-        playerHandCards.push(summonedDriver);
-        renderHand();
-        renderOpponentHand();
-        updateDeckCounts();
-        triggerScreenShake();
-        updateTurnBadge("🐕💪【林走狗】大聲吠叫召喚！八塊腹肌Driver團團長（血量 19999）響應號召，強勢加入我方備戰區！造成 500 傷害！");
+      if (playerStackedCard) {
+        updateTurnBadge("🐕💪🥞【林走狗】大聲吠叫！八塊腹肌Driver團長已在場疊牌共鬥！造成 500 傷害！");
+      } else {
+        // 1. 若備戰區存在 Driver 團長，將其移出
+        const oppDriverIdx = opponentHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+        if (oppDriverIdx !== -1) {
+          opponentHandCards.splice(oppDriverIdx, 1);
+        }
+        const myDriverIdx = playerHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+        if (myDriverIdx !== -1) {
+          playerHandCards.splice(myDriverIdx, 1);
+        }
+
+        // 2. 若敵方場上戰鬥牌正是 Driver 團長，直接強行奪取至我方！
+        if (opponentActiveCard && (opponentActiveCard.name.includes("Driver") || opponentActiveCard.name.includes("八塊腹肌"))) {
+          opponentActiveCard = null;
+          if (opponentHandCards.length > 0) {
+            playOpponentNextCard();
+          } else {
+            const opponentCardPanel = document.querySelector("#opponentCardPanel");
+            const opponentEmptyFieldSlot = document.querySelector("#opponentEmptyFieldSlot");
+            if (opponentCardPanel) {
+              opponentCardPanel.hidden = true;
+              opponentCardPanel.setAttribute("hidden", "");
+              opponentCardPanel.style.display = "none";
+            }
+            if (opponentEmptyFieldSlot) {
+              opponentEmptyFieldSlot.hidden = false;
+              opponentEmptyFieldSlot.removeAttribute("hidden");
+              opponentEmptyFieldSlot.style.display = "";
+            }
+          }
+        }
+
+        // 3. 取得 Driver 團長卡牌模板並實例化
+        const driverDef = defaultCards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌"))) ||
+          cards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+        if (driverDef) {
+          const summonedDriver = JSON.parse(JSON.stringify(driverDef));
+          summonedDriver.health = String(summonedDriver.health || "19999");
+
+          // 4. 疊牌！林走狗不退回備戰區，雙卡同時留在戰鬥牌區共鬥！
+          const baseLinCard = activePlayerCard;
+          baseLinCard.health = String(playerHP);
+          playerStackedCard = baseLinCard;
+          playerStackedHP = playerHP;
+          playerStackedMaxHP = playerMaxHP;
+
+          // 5. 將 Driver 團長空降疊牌至頂層（出戰位，血量 19999）
+          activePlayerCard = summonedDriver;
+          const healthStr = String(summonedDriver.health || "19999").replace(/,/g, "");
+          playerMaxHP = parseInt(healthStr) || 19999;
+          playerHP = playerMaxHP;
+          playerStatus = { defense: 0, damageHalf: false, stunned: false };
+          playerCardDamageMult = 1;
+          playerGeilaoApproached = false;
+
+          // 雙卡合體共鬥招式清單（同時提供團長所有技能與林走狗所有技能！）
+          playerMoves = createStackedBattleMoves(activePlayerCard, playerStackedCard);
+
+          updateBattleCardsVisual();
+          renderHand();
+          renderOpponentHand();
+          renderMoves();
+          updateDeckCounts();
+          triggerScreenShake();
+          updateTurnBadge("🐕💪🥞【林走狗】大聲吠叫召喚！八塊腹肌Driver團團長（血量 19999）直接空降疊牌！雙卡同時在戰鬥牌區共鬥！造成 500 傷害！");
+        }
       }
     }
   }
@@ -1167,7 +2190,8 @@ function useMove(selectedMove) {
 
   if (isCharm) {
     applyDamage("opponent", damage, playerStatus, opponentStatus);
-    selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 2;
+    selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 1;
+    selectedMove.justUsed = true;
     decrementCooldowns();
     if (playerGlitchTurns > 0) {
       playerGlitchTurns--;
@@ -1200,16 +2224,33 @@ function useMove(selectedMove) {
     addEnergy(selectedMove.energy || 15);
     // 能量條集滿斬殺效果 (被動生效: 領域展開，超究極冥王拔不出來術登登登dua郎之炮)
     if (energy >= 100) {
-      updateTurnBadge('💥【雷切小弟弟】噁心能量條 100% 爆發！發動【領域展開，超究極冥王拔不出來術登登登dua郎之炮】！全場灰飛煙滅！');
-      triggerScreenShake();
-      applyDamage("opponent", 999999999, playerStatus, opponentStatus);
       energy = 0;
       if (energyFill) energyFill.style.width = "0%";
       if (energyValue) energyValue.textContent = "0%";
+      playRaicheUltimateCutscene(() => {
+        const targetCardEl = document.querySelector("#opponentCardPanel");
+        playMegaGreenExplosion(targetCardEl, () => {
+          updateTurnBadge('💥【雷切小弟弟】終極奧義核爆！【領域展開，超究極冥王拔不出來術登登登dua郎之炮】！全場灰飛煙滅！');
+          applyDamage("opponent", 999999999, playerStatus, opponentStatus);
+          selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 0;
+          selectedMove.justUsed = true;
+          if (starter === "opponent") decrementCooldowns();
+          if (opponentHP <= 0) {
+            handleOpponentCardDefeated();
+            return;
+          }
+          currentTurn = "opponent";
+          renderMoves();
+          renderOpponentMoves();
+          setTimeout(opponentTurn, 1000);
+        });
+      });
+      return;
     }
   }
 
-  selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 1;
+  selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 0;
+  selectedMove.justUsed = true; // 當前進行的回合剛出招，結束時不算一輪冷卻
 
   if (starter === "opponent") {
     decrementCooldowns();
@@ -1278,7 +2319,10 @@ function opponentTurn() {
   }
 
   let move = null;
-  if (opponentAi === "低") {
+  if (opponentMovesScrambled || opponentGlitchTurns > 0) {
+    // 招式排列被打亂且受到干擾干擾：電腦思考失常，無法以最優戰術出招，改為依被打亂後的順序隨機/首招出牌
+    move = availableMoves[0] || availableMoves[Math.floor(Math.random() * availableMoves.length)];
+  } else if (opponentAi === "低") {
     move = availableMoves[Math.floor(Math.random() * availableMoves.length)];
   } else if (opponentAi === "普通") {
     move = availableMoves.find((m) => parseDamageValue(m.damage) >= playerHP) || availableMoves[Math.floor(Math.random() * availableMoves.length)];
@@ -1295,7 +2339,20 @@ function opponentTurn() {
   }
 
   if (move) {
+    if (hasUltimateKeyword(move)) {
+      triggerUltimateShoutout(move.name, () => {
+        executeOpponentMove(move);
+      });
+    } else {
+      executeOpponentMove(move);
+    }
+  }
+}
+
+function executeOpponentMove(move) {
+  if (move) {
     const isOppRaicheCard = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("雷切小弟弟");
+    const isOppGeilao = opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"));
 
     // 電腦使用雷切小弟弟 V招：領域展開（隨機抽 6 種領域）
     if (isOppRaicheCard && move.name && move.name.includes("領域展開")) {
@@ -1304,7 +2361,8 @@ function opponentTurn() {
       triggerScreenShake();
       updateTurnBadge(`🌌 對手【雷切小弟弟】展開領域【${chosenDomain}】！直接將我方瞬間湮滅！`);
       applyDamage("player", 999999999, opponentStatus, playerStatus);
-      move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 3;
+      move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 2;
+      move.justUsed = true;
       if (starter === "player") decrementCooldowns();
       if (opponentGlitchTurns > 0) {
         opponentGlitchTurns--;
@@ -1326,8 +2384,32 @@ function opponentTurn() {
       applyGlitchEffectToTarget("player", 1);
       if (opponentActiveCard.hasEnergyMeter) {
         addOpponentEnergy(move.energy || 10);
+        if (opponentEnergy >= 100) {
+          opponentEnergy = 0;
+          if (opponentEnergyFill) opponentEnergyFill.style.width = "0%";
+          if (opponentEnergyValue) opponentEnergyValue.textContent = "0%";
+          playRaicheUltimateCutscene(() => {
+            const targetCardEl = document.querySelector("#cardPanel");
+            playMegaGreenExplosion(targetCardEl, () => {
+              updateTurnBadge('💥 對手【雷切小弟弟】終極奧義核爆！發動【領域展開，超究極冥王拔不出來術登登登dua郎之炮】！');
+              applyDamage("player", 999999999, opponentStatus, playerStatus);
+              move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 1;
+              move.justUsed = true;
+              if (starter === "player") decrementCooldowns();
+              if (playerHP <= 0) {
+                handlePlayerCardDefeated();
+                return;
+              }
+              currentTurn = "player";
+              renderMoves();
+              renderOpponentMoves();
+            });
+          });
+          return;
+        }
       }
-      move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 2;
+      move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 1;
+      move.justUsed = true;
       if (starter === "player") decrementCooldowns();
       if (opponentGlitchTurns > 0) {
         opponentGlitchTurns--;
@@ -1342,15 +2424,20 @@ function opponentTurn() {
     }
 
     // 對「黃楷程」Z招與M1特殊切換處理（電腦施展時）
-    if (opponentActiveCard && opponentActiveCard.name === "黃楷程") {
+    const isOppHuang = (opponentActiveCard && opponentActiveCard.name.includes("黃楷程")) ||
+      (opponentStackedCard && opponentStackedCard.name.includes("黃楷程"));
+    if (isOppHuang) {
       if (move.key === "Z" || move.name === "切換腳切") {
+        const kickMatch = (move.specialMechanic && move.specialMechanic.match(/腳切傷害\s*(\d+)/)) || [null, "5000"];
+        const kickDamage = kickMatch[1] || "5000";
         const oppM1 = opponentMoves.find((m) => m.key === "M1");
         if (oppM1) {
           oppM1.name = "腳切";
-          oppM1.damage = "2000";
+          oppM1.damage = kickDamage;
         }
         move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 2;
-        updateTurnBadge("🥋 對手【黃楷程】切換為「腳切」姿態！M1 傷害提升至 2000！");
+        move.justUsed = true;
+        updateTurnBadge(`🥋 對手【黃楷程】切換為「腳切」姿態！M1 傷害提升至 ${kickDamage}！`);
         renderOpponentMoves();
         if (starter === "player") decrementCooldowns();
         if (opponentGlitchTurns > 0) {
@@ -1364,8 +2451,10 @@ function opponentTurn() {
         setTimeout(() => {
           const m1 = opponentMoves.find((m) => m.key === "M1");
           if (m1) {
+            const cardRef = (opponentActiveCard && opponentActiveCard.name.includes("黃楷程")) ? opponentActiveCard : opponentStackedCard;
+            const origM1 = (cardRef && cardRef.moves && cardRef.moves.find((m) => m.key === "M1")) || { damage: "10000" };
             m1.name = "雷切";
-            m1.damage = "600";
+            m1.damage = origM1.damage || "10000";
             renderOpponentMoves();
           }
         }, 0);
@@ -1417,10 +2506,12 @@ function opponentTurn() {
     }
 
     // 電腦為林走狗時的招式機制
-    const isOppLin = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("林走狗");
+    const isOppLin = (opponentActiveCard && (opponentActiveCard.name.includes("林走狗") || opponentActiveCard.name.includes("陳豆豆"))) ||
+      (opponentStackedCard && (opponentStackedCard.name.includes("林走狗") || opponentStackedCard.name.includes("陳豆豆")));
     if (isOppLin || (move.specialMechanic && (move.specialMechanic.includes("姜敦硯必殺") || move.specialMechanic.includes("Driver團長")))) {
       if (move.name === "反掰開" || (move.specialMechanic && move.specialMechanic.includes("姜敦硯必殺"))) {
-        const isTargetGeilao = activePlayerCard && (activePlayerCard.name.includes("給佬") || activePlayerCard.name.includes("姜敦硯"));
+        const isTargetGeilao = (activePlayerCard && (activePlayerCard.name.includes("給佬") || activePlayerCard.name.includes("姜敦硯"))) ||
+          (playerStackedCard && (playerStackedCard.name.includes("給佬") || playerStackedCard.name.includes("姜敦硯")));
         if (isTargetGeilao) {
           damage = 999999999999999;
           triggerScreenShake();
@@ -1429,21 +2520,73 @@ function opponentTurn() {
           updateTurnBadge(`🐕 對手【林走狗】施展【反掰開】！造成 ${damage} 傷害！（可惜我方不是姜敦硯，未觸發必殺）`);
         }
       } else if (move.name === "召喚團長" || (move.specialMechanic && move.specialMechanic.includes("Driver團長"))) {
-        // 從我方手牌搶奪或召喚Driver團長到敵方手牌
-        const pDriverIdx = playerHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
-        if (pDriverIdx !== -1) {
-          playerHandCards.splice(pDriverIdx, 1);
-        }
-        const driverDef = defaultCards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
-        if (driverDef) {
-          const summonedDriver = JSON.parse(JSON.stringify(driverDef));
-          summonedDriver.health = String(summonedDriver.health || "19999");
-          opponentHandCards.push(summonedDriver);
-          renderHand();
-          renderOpponentHand();
-          updateDeckCounts();
-          triggerScreenShake();
-          updateTurnBadge("🐕💪 對手【林走狗】大聲吠叫召喚！八塊腹肌Driver團團長（血量 19999）加入敵方備戰區！造成 500 傷害！");
+        if (opponentStackedCard) {
+          updateTurnBadge("🐕💪🥞 對手【林走狗】大聲吠叫！八塊腹肌Driver團長已在場疊牌共鬥！造成 500 傷害！");
+        } else {
+          // 1. 若備戰區存在 Driver 團長，移出
+          const pDriverIdx = playerHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+          if (pDriverIdx !== -1) {
+            playerHandCards.splice(pDriverIdx, 1);
+          }
+          const oppDriverIdx = opponentHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+          if (oppDriverIdx !== -1) {
+            opponentHandCards.splice(oppDriverIdx, 1);
+          }
+
+          // 2. 若我方當前戰鬥牌正是 Driver 團長，直接被敵方搶走！
+          if (activePlayerCard && (activePlayerCard.name.includes("Driver") || activePlayerCard.name.includes("八塊腹肌"))) {
+            activePlayerCard = null;
+            if (playerHandCards.length > 0) {
+              deployCard(playerHandCards[0], 0);
+            } else {
+              const cardPanelEl = document.querySelector("#cardPanel");
+              if (cardPanelEl) {
+                cardPanelEl.hidden = true;
+                cardPanelEl.setAttribute("hidden", "");
+                cardPanelEl.style.display = "none";
+              }
+              if (emptyFieldSlot) {
+                emptyFieldSlot.hidden = false;
+                emptyFieldSlot.removeAttribute("hidden");
+                emptyFieldSlot.style.display = "";
+              }
+            }
+          }
+
+          // 3. 取得 Driver 團長卡牌模板並實例化
+          const driverDef = defaultCards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌"))) ||
+            cards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+          if (driverDef) {
+            const summonedDriver = JSON.parse(JSON.stringify(driverDef));
+            summonedDriver.health = String(summonedDriver.health || "19999");
+
+            // 4. 疊牌！對手林走狗不退回備戰區，雙卡同時留在敵方戰鬥牌區共鬥！
+            const baseOppLin = opponentActiveCard;
+            baseOppLin.health = String(opponentHP);
+            opponentStackedCard = baseOppLin;
+            opponentStackedHP = opponentHP;
+            opponentStackedMaxHP = opponentMaxHP;
+
+            opponentActiveCard = summonedDriver;
+            const oppHealthStr = String(summonedDriver.health || "19999").replace(/,/g, "");
+            opponentMaxHP = parseInt(oppHealthStr) || 19999;
+            opponentHP = opponentMaxHP;
+            opponentStatus = { defense: 0, damageHalf: false, stunned: false };
+            opponentCardDamageMult = 1;
+            opponentGeilaoApproached = false;
+
+            // 生成對手雙卡疊牌招式清單
+            opponentMoves = createStackedBattleMoves(opponentActiveCard, opponentStackedCard);
+
+            updateBattleCardsVisual();
+            renderHand();
+            renderOpponentHand();
+            renderOpponentMoves();
+            updateDeckCounts();
+            updateFieldStatusTags();
+            triggerScreenShake();
+            updateTurnBadge("🐕💪🥞 對手【林走狗】大聲吠叫召喚！八塊腹肌Driver團團長（血量 19999）直接空降疊牌！雙卡同時在戰鬥牌區共鬥！造成 500 傷害！");
+          }
         }
       }
     }
@@ -1488,16 +2631,32 @@ function opponentTurn() {
     if (oppHasEnergy) {
       addOpponentEnergy(move.energy || 15);
       if (opponentEnergy >= 100) {
-        updateTurnBadge('💥 對手【雷切小弟弟】噁心能量條 100% 爆發！發動【領域展開，超究極冥王拔不出來術登登登dua郎之炮】！');
-        triggerScreenShake();
-        applyDamage("player", 999999999, opponentStatus, playerStatus);
         opponentEnergy = 0;
         if (opponentEnergyFill) opponentEnergyFill.style.width = "0%";
         if (opponentEnergyValue) opponentEnergyValue.textContent = "0%";
+        playRaicheUltimateCutscene(() => {
+          const targetCardEl = document.querySelector("#cardPanel");
+          playMegaGreenExplosion(targetCardEl, () => {
+            updateTurnBadge('💥 對手【雷切小弟弟】終極奧義核爆！發動【領域展開，超究極冥王拔不出來術登登登dua郎之炮】！');
+            applyDamage("player", 999999999, opponentStatus, playerStatus);
+            move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 0;
+            move.justUsed = true;
+            if (starter === "player") decrementCooldowns();
+            if (playerHP <= 0) {
+              handlePlayerCardDefeated();
+              return;
+            }
+            currentTurn = "player";
+            renderMoves();
+            renderOpponentMoves();
+          });
+        });
+        return;
       }
     }
 
-    move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 1;
+    move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 0;
+    move.justUsed = true;
     updateFieldStatusTags();
 
     // 檢查玩家卡牌是否陣亡
@@ -1512,7 +2671,8 @@ function opponentTurn() {
         opponentGlitchTurns--;
         if (opponentGlitchTurns === 0) removeGlitchEffectFromTarget("opponent");
       }
-      move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 2;
+      move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 1;
+      move.justUsed = true;
       decrementCooldowns();
       currentTurn = "opponent";
       if (move.name === "往你嘴裡塞迪克") {
@@ -1552,17 +2712,26 @@ function opponentTurn() {
 }
 
 function handlePlayerCardDefeated() {
+  if (playerStackedCard) return; // 若戰鬥牌區仍有疊牌，絕不觸發全滅判定
+
   const cardPanelEl = document.querySelector("#cardPanel");
   if (cardPanelEl) cardPanelEl.classList.add("dead");
 
-  // 若當前卡牌為姜敦硯，陣亡時解除雜訊效果
+  // 若當前卡牌為姜敦硯，陣亡時解除對手的雜訊效果與被打亂狀態
   if (activePlayerCard && (activePlayerCard.name.includes("給佬") || activePlayerCard.name.includes("姜敦硯"))) {
     if (!opponentActiveCard || (!opponentActiveCard.name.includes("給佬") && !opponentActiveCard.name.includes("姜敦硯"))) {
       isNoiseActive = false;
+      opponentMovesScrambled = false;
       document.body.classList.remove("screen-noise-active");
       const oppPanel = document.querySelector("#opponentCardPanel");
       if (oppPanel) oppPanel.classList.remove("card-noise-interference");
       if (cardPanelEl) cardPanelEl.classList.remove("card-noise-interference");
+      const oppList = document.querySelector("#opponentMoveList");
+      if (oppList) oppList.classList.remove("card-noise-interference");
+      if (opponentActiveCard && Array.isArray(opponentActiveCard.moves)) {
+        opponentMoves = JSON.parse(JSON.stringify(opponentActiveCard.moves));
+        renderOpponentMoves();
+      }
     }
   }
 
@@ -1578,10 +2747,12 @@ function handlePlayerCardDefeated() {
 }
 
 function handleOpponentCardDefeated() {
+  if (opponentStackedCard) return; // 若對手戰鬥牌區仍有疊牌，絕不觸發陣亡換牌
+
   const opponentCardPanel = document.querySelector("#opponentCardPanel");
   if (opponentCardPanel) opponentCardPanel.classList.add("dead");
 
-  // 若對手卡牌為姜敦硯，陣亡時解除雜訊效果
+  // 若對手卡牌為姜敦硯，陣亡時解除我方的雜訊效果
   if (opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"))) {
     if (!activePlayerCard || (!activePlayerCard.name.includes("給佬") && !activePlayerCard.name.includes("姜敦硯"))) {
       isNoiseActive = false;
@@ -1589,6 +2760,8 @@ function handleOpponentCardDefeated() {
       if (opponentCardPanel) opponentCardPanel.classList.remove("card-noise-interference");
       const pPanel = document.querySelector("#cardPanel");
       if (pPanel) pPanel.classList.remove("card-noise-interference");
+      const pList = document.querySelector("#moveList");
+      if (pList) pList.classList.remove("card-noise-interference");
     }
   }
 
@@ -1631,12 +2804,14 @@ function showBattleResult(isVictory, descText) {
 
 if (playAgainButton) {
   playAgainButton.addEventListener("click", () => {
+    clearAllBattleEffects();
     startBattleSession();
   });
 }
 
 if (gameExitButton) {
   gameExitButton.addEventListener("click", () => {
+    clearAllBattleEffects();
     if (battleResultModal) battleResultModal.hidden = true;
     gamePanel.hidden = true;
     difficultyPanel.hidden = false;
@@ -1653,30 +2828,36 @@ if (domainSelectModal) {
 
       if (!pendingDomainMove) return;
 
-      triggerScreenShake();
-      updateTurnBadge(`🌌【雷切小弟弟】展開領域【${chosenDomain}】！時空湮滅，直接將對手瞬間抹殺！`);
-      applyDamage("opponent", 999999999999999999, playerStatus, opponentStatus);
-
-      pendingDomainMove.cooldownRemaining = pendingDomainMove.cooldown !== undefined ? pendingDomainMove.cooldown : 3;
+      const domainMove = pendingDomainMove;
       pendingDomainMove = null;
 
-      if (starter === "opponent") decrementCooldowns();
-      if (playerGlitchTurns > 0) {
-        playerGlitchTurns--;
-        if (playerGlitchTurns === 0) removeGlitchEffectFromTarget("player");
-      }
-      updateFieldStatusTags();
+      triggerUltimateShoutout(`領域展開：${chosenDomain}`, () => {
+        const targetCardEl = document.querySelector("#opponentCardPanel");
+        playMegaGreenExplosion(targetCardEl, () => {
+          updateTurnBadge(`🌌【雷切小弟弟】展開領域【${chosenDomain}】！時空湮滅，直接將對手瞬間抹殺！`);
+          applyDamage("opponent", 999999999999999999, playerStatus, opponentStatus);
 
-      if (opponentHP <= 0) {
-        handleOpponentCardDefeated();
-        return;
-      }
+          domainMove.cooldownRemaining = domainMove.cooldown !== undefined ? domainMove.cooldown : 3;
 
-      currentTurn = "opponent";
-      updateTurnBadge("對手回合思考中...");
-      renderMoves();
-      renderOpponentMoves();
-      setTimeout(opponentTurn, 1000);
+          if (starter === "opponent") decrementCooldowns();
+          if (playerGlitchTurns > 0) {
+            playerGlitchTurns--;
+            if (playerGlitchTurns === 0) removeGlitchEffectFromTarget("player");
+          }
+          updateFieldStatusTags();
+
+          if (opponentHP <= 0) {
+            handleOpponentCardDefeated();
+            return;
+          }
+
+          currentTurn = "opponent";
+          updateTurnBadge("對手回合思考中...");
+          renderMoves();
+          renderOpponentMoves();
+          setTimeout(opponentTurn, 1000);
+        });
+      });
     });
   });
 }
@@ -1765,29 +2946,40 @@ function applyGlitchEffectToTarget(target, turns = 1) {
 }
 
 function removeGlitchEffectFromTarget(target) {
-  if (target === "opponent") {
-    opponentGlitchTurns = 0;
-    const oppPanel = document.querySelector("#opponentCardPanel");
-    if (oppPanel) oppPanel.classList.remove("glitched-card");
-    updateFieldDisplay();
-    renderOpponentMoves();
-  } else {
-    playerGlitchTurns = 0;
-    const pPanel = document.querySelector("#cardPanel");
-    if (pPanel) pPanel.classList.remove("glitched-card");
-    updateFieldDisplay();
-    renderMoves();
-  }
+  // G 招效果結束：徹底還原卡牌與招式的所有字元與排版，絕不殘留任何亂碼！
+  restoreCardPanelDisplay(target);
+  updateFieldDisplay();
 }
 
 function decrementCooldowns() {
   playerMoves.forEach((move) => {
-    if (move.cooldownRemaining > 0) move.cooldownRemaining -= 1;
-    if (move.unlockRemaining > 0) move.unlockRemaining -= 1;
+    // 正在進行的回合結束不算一輪（剛出招的當輪結算不扣減）
+    if (move.justUsed) {
+      move.justUsed = false;
+    } else if (move.cooldownRemaining > 0) {
+      move.cooldownRemaining -= 1;
+    }
+
+    // 剛派上場的當輪結算不算一輪存活
+    if (move.justDeployed) {
+      move.justDeployed = false;
+    } else if (move.unlockRemaining > 0) {
+      move.unlockRemaining -= 1;
+    }
   });
+
   opponentMoves.forEach((move) => {
-    if (move.cooldownRemaining > 0) move.cooldownRemaining -= 1;
-    if (move.unlockRemaining > 0) move.unlockRemaining -= 1;
+    if (move.justUsed) {
+      move.justUsed = false;
+    } else if (move.cooldownRemaining > 0) {
+      move.cooldownRemaining -= 1;
+    }
+
+    if (move.justDeployed) {
+      move.justDeployed = false;
+    } else if (move.unlockRemaining > 0) {
+      move.unlockRemaining -= 1;
+    }
   });
 }
 
@@ -1822,14 +3014,44 @@ function applyDamage(target, amount, attackerStatus, defenderStatus) {
 
   if (target === "opponent") {
     opponentHP = Math.max(0, opponentHP - finalDamage);
+    if (opponentHP <= 0 && opponentStackedCard) {
+      const fallenName = opponentActiveCard.name;
+      opponentActiveCard = opponentStackedCard;
+      opponentHP = opponentStackedHP;
+      opponentMaxHP = opponentStackedMaxHP;
+      opponentStackedCard = null;
+      opponentStackedHP = 0;
+      opponentMoves = createBattleMoves(opponentActiveCard);
+      updateBattleCardsVisual();
+      renderOpponentMoves();
+      triggerScreenShake();
+      updateTurnBadge(`💥 對手前排【${fallenName}】承受重創退場！底層【${opponentActiveCard.name}】（血量 ${opponentHP}）接續作戰！`);
+    } else {
+      updateBattleCardsVisual();
+    }
     const oppHPText = document.querySelector("#opponentHealth");
-    if (oppHPText) oppHPText.textContent = opponentHP;
+    if (oppHPText) oppHPText.textContent = opponentStackedCard ? `${opponentHP} (+${opponentStackedHP} 疊牌)` : opponentHP;
     const oppDefText = document.querySelector("#opponentDefense");
     if (oppDefText) oppDefText.textContent = opponentStatus.defense;
   } else {
     playerHP = Math.max(0, playerHP - finalDamage);
+    if (playerHP <= 0 && playerStackedCard) {
+      const fallenName = activePlayerCard.name;
+      activePlayerCard = playerStackedCard;
+      playerHP = playerStackedHP;
+      playerMaxHP = playerStackedMaxHP;
+      playerStackedCard = null;
+      playerStackedHP = 0;
+      playerMoves = createBattleMoves(activePlayerCard);
+      updateBattleCardsVisual();
+      renderMoves();
+      triggerScreenShake();
+      updateTurnBadge(`💥 我方前排【${fallenName}】承受重創退場！底層【${activePlayerCard.name}】（血量 ${playerHP}）接續出戰！`);
+    } else {
+      updateBattleCardsVisual();
+    }
     const plyHPText = document.querySelector("#cardHealth");
-    if (plyHPText) plyHPText.textContent = playerHP;
+    if (plyHPText) plyHPText.textContent = playerStackedCard ? `${playerHP} (+${playerStackedHP} 疊牌)` : playerHP;
     const plyDefText = document.querySelector("#playerDefense");
     if (plyDefText) plyDefText.textContent = playerStatus.defense;
   }
@@ -2167,12 +3389,12 @@ function createBattleMoves(card) {
   return card.moves.map((move) => {
     const isM1 = move.key === "M1" || move.key === "M1招" || (move.name && move.name.includes("靠近"));
     const isDomain = move.key === "V" || (move.name && move.name.includes("自己掰開"));
-    let unlockTurns = move.unlockAfterTurns || 0;
+    let unlockTurns = move.unlockAfterTurns !== undefined ? move.unlockAfterTurns : 0;
     if (isGeilao) {
       if (isM1) {
         unlockTurns = 0;
       } else if (isDomain) {
-        unlockTurns = 5;
+        unlockTurns = 4;
       } else {
         unlockTurns = 0;
       }
@@ -2183,6 +3405,8 @@ function createBattleMoves(card) {
       ...move,
       cooldownRemaining: 0,
       unlockRemaining: unlockTurns,
+      justDeployed: unlockTurns > 0, // 標記剛上場，第一輪結算不計入已存活
+      justUsed: false,
     };
   });
 }

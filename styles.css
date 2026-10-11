@@ -1308,3 +1308,643 @@ body.screen-noise-active::after {
     flex-direction: column;
   }
 }
+
+/* ==================== 雷切小弟弟 終極能量動畫 ==================== */
+.cutscene-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background-color: #000000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* 閃電背景閃爍 */
+.cutscene-lightning-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, rgba(0, 255, 0, 0.15), transparent 70%);
+  animation: lightning-strike 2s infinite ease-in-out;
+}
+
+@keyframes lightning-strike {
+  0%, 100% {
+    background-color: rgba(0, 0, 0, 0);
+    opacity: 0.15;
+  }
+  14% {
+    background-color: rgba(0, 255, 0, 0.25);
+    opacity: 0.9;
+  }
+  16% {
+    background-color: rgba(255, 255, 255, 0.45);
+    opacity: 1;
+  }
+  20% {
+    background-color: rgba(0, 255, 0, 0.05);
+    opacity: 0.3;
+  }
+  50% {
+    background-color: rgba(0, 255, 0, 0.2);
+    opacity: 0.85;
+  }
+  52% {
+    background-color: rgba(220, 255, 220, 0.5);
+    opacity: 1;
+  }
+  55% {
+    background-color: rgba(0, 0, 0, 0);
+    opacity: 0.2;
+  }
+  85% {
+    background-color: rgba(0, 255, 50, 0.3);
+    opacity: 0.9;
+  }
+}
+
+/* 綠色火焰環境光波與狂暴升騰烈焰 */
+.cutscene-fire-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 110%, rgba(0, 255, 0, 0.75) 0%, rgba(0, 200, 20, 0.45) 30%, rgba(0, 80, 10, 0.25) 55%, transparent 75%),
+    radial-gradient(circle at 20% 105%, rgba(57, 255, 20, 0.5) 0%, transparent 45%),
+    radial-gradient(circle at 80% 105%, rgba(57, 255, 20, 0.5) 0%, transparent 45%);
+  animation: green-flame-surge 1.2s infinite alternate ease-in-out;
+}
+
+.cutscene-fire-fx::before {
+  content: "";
+  position: absolute;
+  bottom: -5vh;
+  left: -20%;
+  right: -20%;
+  height: 65vh;
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(180, 255, 180, 0.85) 0%, rgba(0, 255, 0, 0.6) 25%, rgba(0, 120, 20, 0.35) 55%, transparent 80%),
+    repeating-linear-gradient(45deg, transparent 0px, transparent 15px, rgba(0, 255, 0, 0.08) 15px, rgba(0, 255, 0, 0.08) 30px);
+  filter: blur(14px) brightness(1.6);
+  animation: flame-tongues-dance 0.9s infinite alternate ease-in-out;
+  mix-blend-mode: screen;
+}
+
+.cutscene-fire-fx::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 35vh;
+  background: radial-gradient(ellipse at 50% 100%, rgba(220, 255, 220, 0.9) 0%, rgba(0, 255, 50, 0.6) 45%, transparent 80%);
+  filter: blur(8px);
+  animation: flame-core-pulse 0.65s infinite alternate ease-in-out;
+}
+
+@keyframes green-flame-surge {
+  0% {
+    filter: brightness(1.1) drop-shadow(0 0 25px rgba(0, 255, 0, 0.6));
+    transform: scaleY(1);
+  }
+  100% {
+    filter: brightness(1.7) drop-shadow(0 0 70px rgba(0, 255, 0, 1));
+    transform: scaleY(1.08);
+  }
+}
+
+@keyframes flame-tongues-dance {
+  0% {
+    transform: translateY(0) scaleX(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(-20px) scaleX(1.06) skewX(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-35px) scaleX(0.96) skewX(-2deg);
+    opacity: 0.85;
+  }
+}
+
+@keyframes flame-core-pulse {
+  0% {
+    opacity: 0.75;
+    transform: scaleY(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1.15);
+  }
+}
+
+.cutscene-content {
+  position: relative;
+  z-index: 2;
+  width: 96vw;
+  max-width: 1400px;
+  min-height: 480px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+/* 涵蓋整個螢幕的冥王動畫容器 */
+.cutscene-video-wrapper {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  z-index: 20;
+}
+
+.cutscene-video-wrapper[hidden] {
+  display: none !important;
+}
+
+/* 16:9 滿版舞台：保持 16:9 比例並完全覆蓋整個螢幕，無縫置中 */
+.cutscene-video-stage {
+  position: relative;
+  width: 100vw;
+  height: 56.25vw; /* 16:9 高度 (100 * 9 / 16) */
+  min-height: 100vh;
+  min-width: 177.78vh; /* 16:9 寬度 (100 * 16 / 9) */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #000000;
+  overflow: hidden;
+}
+
+.cutscene-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-color: #000000;
+  z-index: 1;
+}
+
+/* 黑色區塊遮罩：徹底擋死影片中的白色邊框、底部白條以及烏薩奇 */
+.video-blocker {
+  position: absolute;
+  background-color: #000000;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* 頂部細白線遮擋 */
+.blocker-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2%;
+}
+
+/* 左側白色邊框遮擋 */
+.blocker-left {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4.8%;
+}
+
+/* 右側白色邊框遮擋 */
+.blocker-right {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 4.8%;
+}
+
+/* 底部灰白邊條遮擋 */
+.blocker-bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 8.5%;
+}
+
+/* 左下角烏薩奇專屬遮擋 (高 16.5%、寬 18.5%，完美覆蓋烏薩奇且不遮擋中央動畫) */
+.blocker-usagi {
+  bottom: 0;
+  left: 0;
+  width: 18.5%;
+  height: 16.5%;
+}
+
+.cutscene-text-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  width: 100%;
+}
+
+.cutscene-line {
+  margin: 0;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", Impact, sans-serif;
+  color: #00ff00;
+  font-size: clamp(1.8rem, 4.5vw, 2.7rem);
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-shadow:
+    0 0 8px #00ff00,
+    0 0 16px #00ff00,
+    0 0 32px #00ff66,
+    0 0 60px rgba(0, 255, 0, 0.85);
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  animation: cutscene-text-appear 0.45s forwards cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.cutscene-line.highlight {
+  color: #55ff55;
+  font-size: clamp(2.6rem, 6.5vw, 4rem);
+  text-shadow:
+    0 0 12px #00ff00,
+    0 0 25px #00ff00,
+    0 0 50px #55ff55,
+    0 0 90px rgba(0, 255, 0, 1);
+}
+
+.cutscene-line.climax {
+  color: #ffffff;
+  font-size: clamp(2.4rem, 6.5vw, 4.5rem);
+  letter-spacing: 0.15em;
+  white-space: nowrap;
+  word-break: keep-all;
+  text-shadow:
+    0 0 10px #ffffff,
+    0 0 20px #00ff00,
+    0 0 40px #00ff00,
+    0 0 80px #00ff00,
+    0 0 120px rgba(0, 255, 50, 1);
+  animation: cutscene-climax-slam 0.35s forwards cubic-bezier(0.08, 0.82, 0.17, 1);
+}
+
+/* 最後一句「登登登dua郎之炮！！！」：嚴格單排文字、自適應寬度不折行 */
+.cutscene-line.climax.last-line {
+  white-space: nowrap !important;
+  font-size: clamp(1.35rem, 4.6vw, 3.8rem) !important;
+  letter-spacing: 0.05em !important;
+  width: 100% !important;
+  max-width: 98vw !important;
+  text-align: center !important;
+  margin: 0 auto !important;
+  display: block !important;
+  word-break: keep-all !important;
+  overflow: visible !important;
+  line-height: 1.2 !important;
+}
+
+@keyframes cutscene-text-appear {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.9);
+    filter: blur(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes cutscene-climax-slam {
+  0% {
+    opacity: 0;
+    transform: scale(2.3);
+    filter: blur(12px) brightness(2.5);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(0.92);
+    filter: blur(0) brightness(1.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0) brightness(1.1);
+  }
+}
+
+.cutscene-skip-btn {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 50;
+  padding: 0.6rem 1.4rem;
+  border-radius: 999px;
+  background: rgba(0, 255, 0, 0.15);
+  border: 1px solid #00ff00;
+  color: #00ff00;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-shadow: 0 0 6px #00ff00;
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.cutscene-skip-btn:hover {
+  background: rgba(0, 255, 0, 0.35);
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+  transform: scale(1.05);
+}
+
+/* ==================== 「絕招」紅色霸氣喊招效果 ==================== */
+.shoutout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99990;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding-top: 10vh;
+}
+
+.shoutout-backdrop {
+  position: absolute;
+  top: 6vh;
+  left: 0;
+  right: 0;
+  height: 220px;
+  background: linear-gradient(90deg, transparent 0%, rgba(180, 0, 20, 0.6) 20%, rgba(240, 10, 30, 0.85) 50%, rgba(180, 0, 20, 0.6) 80%, transparent 100%);
+  border-top: 2px solid #ff2244;
+  border-bottom: 2px solid #ff2244;
+  box-shadow: 0 0 35px rgba(255, 0, 50, 0.8), inset 0 0 25px rgba(255, 0, 0, 0.6);
+  transform: skewY(-2.5deg);
+  animation: shoutout-bg-flash 1.4s ease-out forwards;
+}
+
+@keyframes shoutout-bg-flash {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.2) skewY(-2.5deg);
+  }
+  20% {
+    opacity: 1;
+    transform: scaleX(1) skewY(-2.5deg);
+  }
+  80% {
+    opacity: 1;
+    transform: scaleX(1) skewY(-2.5deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1.1) skewY(-2.5deg);
+  }
+}
+
+.shoutout-container {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: shoutout-impact 1.4s cubic-bezier(0.12, 0.85, 0.28, 1) forwards;
+}
+
+.shoutout-subtitle {
+  color: #ffebee;
+  font-size: clamp(1rem, 2.5vw, 1.6rem);
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  padding: 0.2rem 1.5rem;
+  background: rgba(180, 0, 0, 0.85);
+  border: 1px solid #ff4d6d;
+  border-radius: 999px;
+  text-shadow: 0 0 10px #ff0033;
+  box-shadow: 0 0 15px rgba(255, 0, 50, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.shoutout-title {
+  color: #ff1744;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", Impact, sans-serif;
+  font-size: clamp(2.6rem, 7.5vw, 5.2rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-shadow:
+    0 0 8px #ffffff,
+    0 0 20px #ff0033,
+    0 0 40px #ff0033,
+    0 0 70px #cc0022,
+    0 0 110px rgba(255, 0, 50, 0.9);
+  -webkit-text-stroke: 2px #fff;
+  white-space: normal;
+  max-width: 90vw;
+  line-height: 1.2;
+}
+
+@keyframes shoutout-impact {
+  0% {
+    opacity: 0;
+    transform: scale(3.5);
+    filter: blur(14px) brightness(2.5);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(0.94);
+    filter: blur(0) brightness(1.4);
+  }
+  25% {
+    transform: scale(1.05);
+  }
+  30% {
+    transform: scale(1);
+    filter: blur(0) brightness(1);
+  }
+  75% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.9);
+    filter: blur(8px);
+  }
+}
+
+/* ==================== 5秒超華麗綠色終極連鎖大爆炸 ==================== */
+.input-lockdown-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999999;
+  pointer-events: all !important;
+  cursor: not-allowed !important;
+  user-select: none !important;
+  background: transparent;
+}
+
+.mega-explosion-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999990;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.mega-explosion-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.explosion-flash-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(circle at 50% 50%, rgba(0, 255, 0, 0.4), transparent 80%);
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.card-under-mega-explosion {
+  animation: card-mega-shred 0.15s infinite !important;
+  position: relative !important;
+  z-index: 999995 !important;
+}
+
+@keyframes card-mega-shred {
+  0% {
+    transform: scale(1) translate(0, 0);
+    filter: drop-shadow(0 0 25px #00ff00) brightness(1.3) contrast(120%);
+  }
+  20% {
+    transform: scale(1.09) translate(-7px, 6px) rotate(-2deg);
+    filter: drop-shadow(0 0 50px #39ff14) brightness(2.4) contrast(160%);
+  }
+  40% {
+    transform: scale(0.93) translate(8px, -7px) rotate(2.5deg);
+    filter: drop-shadow(0 0 75px #00ff00) brightness(2) contrast(140%);
+  }
+  60% {
+    transform: scale(1.13) translate(-10px, -5px) rotate(-3deg);
+    filter: drop-shadow(0 0 110px #aaffaa) brightness(3.2) contrast(200%);
+  }
+  80% {
+    transform: scale(0.91) translate(6px, 9px) rotate(1.5deg);
+    filter: drop-shadow(0 0 85px #00ff00) brightness(2.2) contrast(150%);
+  }
+  100% {
+    transform: scale(1) translate(0, 0);
+    filter: drop-shadow(0 0 35px #00ff00) brightness(1.3) contrast(120%);
+  }
+}
+
+/* ==================== 雙卡疊牌 (Card Stacking) 樣式 ==================== */
+.stacked-card-active {
+  position: relative !important;
+  box-shadow:
+    0.35rem -0.35rem 0 rgba(255, 200, 50, 0.45),
+    0.7rem -0.7rem 0 rgba(0, 255, 150, 0.28),
+    0 0.8rem 1.6rem var(--shadow) !important;
+  border-color: #ffd700 !important;
+  transition: all 0.3s ease;
+}
+
+.stacked-card-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  background: linear-gradient(90deg, rgba(255, 180, 0, 0.28), rgba(0, 255, 120, 0.22));
+  border: 1px solid rgba(255, 215, 0, 0.7);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #ffe680;
+  box-shadow: 0 0 12px rgba(255, 200, 0, 0.35);
+  animation: stack-glow-pulse 2s infinite ease-in-out;
+}
+
+@keyframes stack-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 200, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.6), 0 0 30px rgba(0, 255, 150, 0.3);
+  }
+}
+
+.stack-badge-title {
+  color: #ffd700;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.stack-badge-info {
+  color: #a3ffd1;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.stack-swap-btn {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid #ffd700;
+  color: #ffffff;
+  border-radius: 4px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stack-swap-btn:hover {
+  background: rgba(255, 215, 0, 0.45);
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
+  transform: scale(1.05);
+}
+
+.move-owner-badge {
+  display: inline-block;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.move-owner-badge.owner-driver {
+  background: rgba(255, 140, 0, 0.35);
+  border: 1px solid #ff9900;
+  color: #ffc266;
+  text-shadow: 0 0 4px #ff9900;
+}
+
+.move-owner-badge.owner-lin {
+  background: rgba(50, 205, 50, 0.3);
+  border: 1px solid #32cd32;
+  color: #98fb98;
+  text-shadow: 0 0 4px #32cd32;
+}

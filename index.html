@@ -277,7 +277,45 @@
         </div>
       </div>
     </section>
-  </main>
+  <!-- 雷切小弟弟 能量滿 終極領域展開動畫 -->
+  <div id="raicheUltimateCutscene" class="cutscene-overlay" hidden aria-hidden="true">
+    <div class="cutscene-lightning-canvas"></div>
+    <div class="cutscene-fire-fx"></div>
+    <div class="cutscene-content">
+      <div id="cutsceneTextContainer" class="cutscene-text-box"></div>
+    </div>
+    <!-- 涵蓋整個螢幕的冥王動畫播放舞台與黑塊遮罩 -->
+    <div id="cutsceneVideoWrapper" class="cutscene-video-wrapper" hidden>
+      <div class="cutscene-video-stage">
+        <video id="cutsceneVideo" class="cutscene-video" src="冥王動畫1080畫質.mp4" playsinline preload="auto"></video>
+        <!-- 黑色區塊：擋住頂部/兩側/底部白色區塊及下面那隻烏薩奇 -->
+        <div class="video-blocker blocker-top" aria-hidden="true"></div>
+        <div class="video-blocker blocker-bottom" aria-hidden="true"></div>
+        <div class="video-blocker blocker-left" aria-hidden="true"></div>
+        <div class="video-blocker blocker-right" aria-hidden="true"></div>
+        <div class="video-blocker blocker-usagi" aria-hidden="true"></div>
+      </div>
+    </div>
+    <button type="button" id="cutsceneSkipBtn" class="cutscene-skip-btn">跳過動畫 ⏩</button>
+  </div>
+
+  <!-- 「絕招」紅色大喊招式特效 -->
+  <div id="ultimateSkillShoutout" class="shoutout-overlay" hidden aria-hidden="true">
+    <div class="shoutout-backdrop"></div>
+    <div class="shoutout-container">
+      <div class="shoutout-subtitle">⚡ 絕 招 必 殺 ⚡</div>
+      <div id="shoutoutMoveName" class="shoutout-title">招式名稱</div>
+    </div>
+  </div>
+
+  <!-- 5秒超華麗綠色終極連鎖大爆炸覆蓋層 -->
+  <div id="megaGreenExplosionOverlay" class="mega-explosion-overlay" hidden aria-hidden="true">
+    <div class="explosion-flash-bg"></div>
+    <canvas id="megaExplosionCanvas" class="mega-explosion-canvas"></canvas>
+  </div>
+
+  <!-- 爆炸期間全域按鍵與點擊鎖定層（讓玩家不能按任何按鍵） -->
+  <div id="inputLockdownOverlay" class="input-lockdown-overlay" hidden aria-hidden="true"></div>
 
   <script src="script.js"></script>
 </body>
