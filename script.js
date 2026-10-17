@@ -43,6 +43,20 @@ const addMoveBtn = document.querySelector("#addMoveBtn");
 const saveCardButton = document.querySelector("#saveCardButton");
 const editorStatusText = document.querySelector("#editorStatusText");
 
+// 卡牌背面設計 DOM
+const backCardStateTag = document.querySelector("#backCardStateTag");
+const backCardToggleBox = document.querySelector("#backCardToggleBox");
+const enableBackCardBtn = document.querySelector("#enableBackCardBtn");
+const backCardFormBody = document.querySelector("#backCardFormBody");
+const removeBackCardBtn = document.querySelector("#removeBackCardBtn");
+const editBackCardName = document.querySelector("#editBackCardName");
+const editBackCardDikra = document.querySelector("#editBackCardDikra");
+const editBackCardChakra = document.querySelector("#editBackCardChakra");
+const editBackCardHealth = document.querySelector("#editBackCardHealth");
+const editBackCardPassive = document.querySelector("#editBackCardPassive");
+const addBackMoveBtn = document.querySelector("#addBackMoveBtn");
+const backMovesEditContainer = document.querySelector("#backMovesEditContainer");
+
 // 預覽相關 DOM
 const previewCardName = document.querySelector("#previewCardName");
 const previewDikra = document.querySelector("#previewDikra");
@@ -51,6 +65,9 @@ const previewHealth = document.querySelector("#previewHealth");
 const previewPassive = document.querySelector("#previewPassive");
 const previewMoveList = document.querySelector("#previewMoveList");
 const previewEnergyMeter = document.querySelector("#previewEnergyMeter");
+const previewFlipBtn = document.querySelector("#previewFlipBtn");
+
+let previewShowingBack = false;
 
 let opponentAi = "";
 let energy = 0;
@@ -229,6 +246,98 @@ const defaultCards = [
       { key: "C", name: "召喚團長", damage: "500", cooldown: 0, energy: 10, specialMechanic: "將Driver團長疊牌至自己戰鬥牌區(雙卡同時在場共鬥，不論團長是生是死是對方還是我的)" },
     ],
   },
+  {
+    name: "Driver團合體",
+    dikra: "-99999999999999999",
+    chakra: "無限",
+    health: "12000",
+    hasEnergyMeter: false,
+    passive: "Driver們的威力",
+    moves: [
+      {
+        key: "G",
+        name: "領域展開，超級自爆，林狗加成合體，給佬掰開加成，陳豆發怒100%大干黑閃",
+        damage: "無限",
+        energy: 10,
+        cooldown: 0,
+        specialMechanic: "若對方也是團合體牌，將進入剪刀石頭布的對決，贏的可以拿掉對方，免疫雷切小弟弟的超究極冥王拔不出來數雷切節刀燈燈燈dua郎之泡，本卡牌還有另一面，只有你的卡牌蒐集到了所有團員\"八塊腹肌Driver團團長、給佬+姜敦硯、林走狗、陳豆豆\"就可以翻面",
+      },
+    ],
+    backCard: {
+      name: "Driver團合體 (背面)",
+      dikra: "-無限迪克拉",
+      chakra: "無限",
+      health: "15000",
+      hasEnergyMeter: false,
+      passive: "最強團體 OP 奧義",
+      hasPosterArt: true,
+      decorativeLines: [
+        "3:超級自爆！",
+        "9:發怒干！",
+        "13:反掰開！",
+        "14:自己掰開！",
+      ],
+      moves: [
+        { key: "一起", name: "領域展開，DRIVE！！！！", damage: "無限", energy: 100, cooldown: 0, specialMechanic: "(絕招) 一起：領域展開，DRIVE！！！！全員究極奧義終結！" },
+      ],
+    },
+  },
+  {
+    name: "盧三角",
+    dikra: "67",
+    chakra: "67",
+    health: "6700",
+    hasEnergyMeter: false,
+    passive: "um",
+    moves: [
+      {
+        key: "M1",
+        name: "三角銳角攻擊",
+        damage: "67^2",
+        energy: 10,
+        cooldown: 0,
+        unlockAfterTurns: 0,
+        specialMechanic: "普通攻擊",
+      },
+      {
+        key: "Z",
+        name: "三角衝刺",
+        damage: "1000",
+        energy: 25,
+        cooldown: 0,
+      },
+      {
+        key: "X",
+        name: "三角....不搞了",
+        damage: "500",
+        cooldown: 1,
+        energy: 10,
+        specialMechanic: "對方不能發招一局",
+      },
+      {
+        key: "C",
+        name: "羅波攻擊",
+        damage: "3500",
+        cooldown: 2,
+        energy: 10,
+      },
+      {
+        key: "V招",
+        name: "性感動作",
+        damage: "2",
+        cooldown: 0,
+        energy: 10,
+        specialMechanic: "對方不能出招一回合",
+      },
+      {
+        key: "F",
+        name: "火柴人&貓貓",
+        damage: "(1+1+1+1+1+0+0+4+4+4)*70",
+        cooldown: 1,
+        energy: 10,
+      },
+    ],
+  },
 ];
 
 // 規範化卡牌屬性與特殊機制解析（尊重使用者自訂內容，不隨意覆蓋）
@@ -373,6 +482,15 @@ function loadCustomCards() {
             parsed.push(JSON.parse(JSON.stringify(defCard)));
           }
         });
+
+        // 若已儲存的 Driver團合體 尚未設定背面或仍為舊版多招式框框版，自動同步為海報純文字裝飾版
+        const driverComboDef = defaultCards.find((c) => c.name && c.name.includes("Driver團合體"));
+        const driverComboSaved = parsed.find((c) => c.name && c.name.includes("Driver團合體"));
+        if (driverComboSaved && driverComboDef) {
+          if (!driverComboSaved.backCard || !driverComboSaved.backCard.decorativeLines || (driverComboSaved.backCard.moves && driverComboSaved.backCard.moves.length > 1)) {
+            driverComboSaved.backCard = JSON.parse(JSON.stringify(driverComboDef.backCard));
+          }
+        }
 
         localStorage.setItem("customCardLibrary", JSON.stringify(parsed));
         return parsed.map(normalizeCard);
@@ -1306,6 +1424,7 @@ function renderHand() {
     playerHand.appendChild(button);
   });
   updateDeckCounts();
+  updateBattleCardsVisual();
 }
 
 function renderOpponentHand() {
@@ -1597,7 +1716,73 @@ function swapPlayerStack() {
   updateTurnBadge(`🔄 疊牌主從切換！現在由【${activePlayerCard.name}】居於前排，【${playerStackedCard.name}】處於底層！`);
 }
 
-// 更新場上疊牌視覺（雙卡標籤、雙卡血量與雙卡名稱資訊）
+// 檢查手牌是否集齊 Driver 團四位全員 (團長、林走狗、陳豆豆、姜敦硯)
+function checkDriverComboMembers(handCards) {
+  const cards = Array.isArray(handCards) ? handCards : [];
+  const hasDriver = cards.some((c) => c && c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌") || c.name.includes("團長")));
+  const hasLin = cards.some((c) => c && c.name && (c.name.includes("林走狗") || c.name.includes("林狗")));
+  const hasChen = cards.some((c) => c && c.name && c.name.includes("陳豆豆"));
+  const hasJiang = cards.some((c) => c && c.name && (c.name.includes("姜敦硯") || c.name.includes("姜敦驗") || c.name.includes("給佬")));
+
+  const missing = [];
+  if (!hasDriver) missing.push("Driver團長");
+  if (!hasLin) missing.push("林走狗");
+  if (!hasChen) missing.push("陳豆豆");
+  if (!hasJiang) missing.push("姜敦硯");
+
+  return {
+    canFlip: missing.length === 0,
+    missing,
+  };
+}
+
+// 雙面卡翻面切換
+function flipActivePlayerCard() {
+  if (!activePlayerCard || !activePlayerCard.backCard) return;
+
+  const isDriverCard = activePlayerCard.name && activePlayerCard.name.includes("Driver");
+  const isCurrentlyFront = !activePlayerCard.name.includes("背面");
+
+  // 若為 Driver 團合體 且準備從正面翻面至背面，必須集齊手牌所有 4 位團員！
+  if (isDriverCard && isCurrentlyFront) {
+    const check = checkDriverComboMembers(playerHandCards);
+    if (!check.canFlip) {
+      triggerScreenShake();
+      updateTurnBadge(`🔒【無法翻面】手牌必須集結所有團員（Driver團長、林走狗、陳豆豆、姜敦硯）才能翻面！目前手牌缺少：${check.missing.join("、")}！`);
+      return;
+    }
+  }
+
+  const oldCard = JSON.parse(JSON.stringify(activePlayerCard));
+  const newFront = JSON.parse(JSON.stringify(activePlayerCard.backCard));
+  
+  delete oldCard.backCard;
+  newFront.backCard = oldCard; // 形成循環關聯，可再次翻回
+  activePlayerCard = newFront;
+
+  // 若成功翻轉為背面形態，進入完全無敵狀態！
+  if (isDriverCard && isCurrentlyFront) {
+    activePlayerCard.isFullyInvincible = true;
+    updateTurnBadge("👑🌟【最強團體 OP 奧義】Driver團所有團員全部集齊！成功翻面進化！進入【完全無敵狀態】！");
+  } else if (isDriverCard && !isCurrentlyFront) {
+    activePlayerCard.isFullyInvincible = false;
+    updateTurnBadge("🔄 翻轉回正面基礎形態，解除完全無敵狀態。");
+  } else {
+    updateTurnBadge(`🔄 雙面卡翻轉！【${oldCard.name}】翻轉為【${activePlayerCard.name}】形態！`);
+  }
+
+  // 更新屬性與招式
+  const newHpVal = parseInt(activePlayerCard.health) || 10000;
+  playerHP = newHpVal;
+  playerMaxHP = newHpVal;
+  playerMoves = createBattleMoves(activePlayerCard);
+
+  updateBattleCardsVisual();
+  renderMoves();
+  triggerScreenShake();
+}
+
+// 更新場上疊牌與雙面卡視覺（雙卡標籤、雙卡血量與雙面卡翻面資訊）
 function updateBattleCardsVisual() {
   // 我方戰鬥牌面板
   const cardPanelEl = document.querySelector("#cardPanel");
@@ -1628,6 +1813,68 @@ function updateBattleCardsVisual() {
     } else {
       cardPanelEl.classList.remove("stacked-card-active");
       if (stackBadge) stackBadge.remove();
+    }
+
+    // 雙面卡翻轉標籤與完全無敵標籤
+    let flipBadge = document.querySelector("#playerFlipBadge");
+    if (activePlayerCard.backCard) {
+      if (!flipBadge) {
+        flipBadge = document.createElement("div");
+        flipBadge.id = "playerFlipBadge";
+        flipBadge.className = "stacked-card-badge";
+        flipBadge.style.borderColor = "#9b59b6";
+        flipBadge.style.background = "rgba(142, 68, 173, 0.25)";
+        const titleRow = cardPanelEl.querySelector(".card-title-row");
+        if (titleRow) cardPanelEl.insertBefore(flipBadge, titleRow);
+        else cardPanelEl.prepend(flipBadge);
+      }
+
+      const isDriverCard = activePlayerCard.name && activePlayerCard.name.includes("Driver");
+      const isCurrentlyFront = !activePlayerCard.name.includes("背面");
+      let flipBtnText = "🔄 翻轉卡牌";
+      let btnClass = "stack-swap-btn";
+
+      if (isDriverCard && isCurrentlyFront) {
+        const check = checkDriverComboMembers(playerHandCards);
+        if (check.canFlip) {
+          flipBtnText = "🌟 全員已齊！翻面無敵！";
+          btnClass += " flip-ready-btn";
+        } else {
+          flipBtnText = `🔒 翻面合體 (缺團員: ${check.missing.length}人)`;
+        }
+      }
+
+      const invincibleTag = activePlayerCard.isFullyInvincible ? `<span class="invincible-badge">🛡️ 完全無敵</span>` : "";
+
+      flipBadge.innerHTML = `
+        <span class="stack-badge-title" style="color: #d7bde2;">🎴 雙面卡 ${invincibleTag}</span>
+        <span class="stack-badge-info">[背面: ${activePlayerCard.backCard.name}]</span>
+        <button type="button" class="${btnClass}" id="flipActiveCardBtn" style="background: rgba(155, 89, 182, 0.45); border-color: #bb8fce;">${flipBtnText}</button>
+      `;
+      const flipBtn = flipBadge.querySelector("#flipActiveCardBtn");
+      if (flipBtn) {
+        flipBtn.onclick = (e) => {
+          e.stopPropagation();
+          flipActivePlayerCard();
+        };
+      }
+    } else {
+      if (flipBadge) flipBadge.remove();
+    }
+
+    // 完全無敵光環樣式切換
+    if (activePlayerCard.isFullyInvincible) {
+      cardPanelEl.classList.add("is-invincible-active");
+    } else {
+      cardPanelEl.classList.remove("is-invincible-active");
+    }
+
+    // 若為海報文字模式（Driver團背面），切換 is-poster-mode 徹底拿掉上方框框
+    const isPosterActive = activePlayerCard && (activePlayerCard.hasPosterArt || (activePlayerCard.name && activePlayerCard.name.includes("Driver") && activePlayerCard.name.includes("背面")));
+    if (isPosterActive) {
+      cardPanelEl.classList.add("is-poster-mode");
+    } else {
+      cardPanelEl.classList.remove("is-poster-mode");
     }
 
     const nameEl = document.querySelector("#cardName");
@@ -1668,6 +1915,10 @@ function updateBattleCardsVisual() {
       oppCardPanelEl.classList.remove("stacked-card-active");
       if (oppStackBadge) oppStackBadge.remove();
     }
+
+    // 若對手為海報模式（Driver團背面），切換 is-poster-mode 徹底拿掉上方框框
+    const isOppPoster = opponentActiveCard && (opponentActiveCard.hasPosterArt || (opponentActiveCard.name && opponentActiveCard.name.includes("Driver") && opponentActiveCard.name.includes("背面")));
+    oppCardPanelEl.classList.toggle("is-poster-mode", Boolean(isOppPoster));
 
     const oppNameEl = document.querySelector("#opponentCardName");
     if (oppNameEl) {
@@ -1729,6 +1980,37 @@ function updateFieldStatusTags() {
   if (oDef) oDef.textContent = opponentStatus.defense;
 }
 
+// Driver團背面海報藝術純文字裝飾元素生成器 (無按鈕、無框框)
+function createDriverPosterElement(card) {
+  const container = document.createElement("div");
+  container.className = "driver-poster-box";
+  const lines = (card && card.decorativeLines) || [
+    "3:超級自爆！",
+    "9:發怒干！",
+    "13:反掰開！",
+    "14:自己掰開！",
+  ];
+  const linesHtml = lines.map((l) => `<p class="poster-text-line">${l}</p>`).join("");
+  container.innerHTML = `
+    <div class="poster-side-col poster-left-text">
+      <span>最</span>
+      <span>強</span>
+      <span>團</span>
+      <span>體</span>
+    </div>
+    <div class="poster-center-content">
+      <div class="poster-dikra-top">-無限迪克拉</div>
+      ${linesHtml}
+    </div>
+    <div class="poster-side-col poster-right-text">
+      <span>OP</span>
+      <span>奧</span>
+      <span>義</span>
+    </div>
+  `;
+  return container;
+}
+
 function renderMoves() {
   if (!moveList) return;
 
@@ -1745,11 +2027,18 @@ function renderMoves() {
 
   moveList.innerHTML = "";
 
+  // 若當前卡牌為 Driver團背面 (具有海報純文字裝飾)
+  const isPosterCard = activePlayerCard && (activePlayerCard.hasPosterArt || (activePlayerCard.name && activePlayerCard.name.includes("Driver") && activePlayerCard.name.includes("背面")));
+  if (isPosterCard) {
+    moveList.appendChild(createDriverPosterElement(activePlayerCard));
+  }
+
   const isPlayerGeilao = activePlayerCard && (activePlayerCard.name.includes("給佬") || activePlayerCard.name.includes("姜敦硯"));
 
   playerMoves.forEach((move) => {
     const button = document.createElement("button");
-    button.className = "move-button";
+    const isUltimateDrive = move.name.includes("DRIVE") || move.key === "一起";
+    button.className = `move-button${isUltimateDrive ? " ultimate-drive-button" : ""}`;
     button.type = "button";
 
     const isM1 = move.key === "M1" || move.key === "M1招" || (move.name && move.name.includes("靠近"));
@@ -2093,6 +2382,61 @@ function executePlayerMove(selectedMove) {
       const plyHPText = document.querySelector("#cardHealth");
       if (plyHPText) plyHPText.textContent = playerHP;
       updateTurnBadge(`🏃‍♂️【給佬®+姜敦硯】快速下樓梯逃跑，Driver團長掩護！回復了 ${healAmount} 點生命值！`);
+    }
+  }
+
+  // Driver團合體 (最強團體 OP 奧義) 招式機制
+  const isDriverCombo = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("Driver團合體");
+  if (isDriverCombo) {
+    damage = 999999999; // Driver團合體出招必為無限級毀滅傷害！
+    if (selectedMove.name.includes("DRIVE") || selectedMove.key === "一起") {
+      triggerScreenShake();
+      updateTurnBadge("🔥🌌【最強團體 OP 奧義】全員集結！一起發動【領域展開，DRIVE！！！！】！震撼天地，造成無限毀滅核爆！");
+    } else if (selectedMove.name.includes("自爆")) {
+      triggerScreenShake();
+      updateTurnBadge(`💣💥【Driver團合體】全員合體大自爆！發動【${selectedMove.name}】！造成無限毀滅核爆重創！`);
+    } else if (selectedMove.name.includes("發怒干")) {
+      damage = 8000;
+      triggerScreenShake();
+      updateTurnBadge("💢⚡【Driver團合體】陳豆豆狂暴大叫「干！」觸發 100% 黑閃暴擊！重創對手 8000 點傷害！");
+    } else if (selectedMove.name.includes("自己掰開")) {
+      opponentGlobalDamageMult = 0.25;
+      triggerScreenShake();
+      updateTurnBadge("👐✨【Driver團合體】給佬姜敦硯【自己掰開！】造成 15000 傷害！對手往後所有牌傷害全面降為 1/4！");
+    } else if (selectedMove.name.includes("反掰開")) {
+      damage = 5000;
+      triggerScreenShake();
+      updateTurnBadge("🐕💥【Driver團合體】林走狗凶猛咆哮【反掰開！】！造成 5000 點傷害！");
+    } else {
+      triggerScreenShake();
+      updateTurnBadge(`💥【Driver團合體】發動【${selectedMove.name}】！造成無限毀滅傷害！`);
+    }
+  }
+
+  // 盧三角 特殊招式機制 (玩家施展)
+  const isPlayerLu = (activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("盧三角")) ||
+    (playerStackedCard && playerStackedCard.name && playerStackedCard.name.includes("盧三角"));
+  if (isPlayerLu) {
+    if (selectedMove.name.includes("三角銳角攻擊")) {
+      triggerScreenShake();
+      updateTurnBadge(`📐【盧三角】發動【三角銳角攻擊】(67^2)！幾何銳角精準切割，造成 ${damage} (4489) 點高額暴擊傷害！`);
+    } else if (selectedMove.name.includes("三角衝刺")) {
+      triggerScreenShake();
+      updateTurnBadge(`🔺💨【盧三角】高速啟動【三角衝刺】！造成 ${damage} 點極速衝撞重擊！`);
+    } else if (selectedMove.name.includes("不搞了")) {
+      opponentStatus.stunned = true;
+      triggerScreenShake();
+      updateTurnBadge(`🔺【盧三角】施展【三角....不搞了】！造成 ${damage} 傷害！對手滿臉問號直接傻眼，不能發招一局！`);
+    } else if (selectedMove.name.includes("羅波攻擊")) {
+      triggerScreenShake();
+      updateTurnBadge(`🥕【盧三角】大力投擲巨型【羅波攻擊】！造成 ${damage} 點沉重打擊！`);
+    } else if (selectedMove.name.includes("性感動作")) {
+      opponentStatus.stunned = true;
+      triggerScreenShake();
+      updateTurnBadge(`💃【盧三角】突然擺出極度魅惑的【性感動作】！造成 ${damage} 點精神暴擊！對手完全看呆，停止出招一回合！`);
+    } else if (selectedMove.name.includes("火柴人") || selectedMove.name.includes("貓貓")) {
+      triggerScreenShake();
+      updateTurnBadge(`🐱【盧三角】召喚【火柴人&貓貓】！(1+1+1+1+1+0+0+4+4+4)*70 算式連攜爆發，造成 ${damage} 點連續重創！`);
     }
   }
 
@@ -2502,6 +2846,59 @@ function executeOpponentMove(move) {
       }
       if (sm.includes("減半")) {
         playerStatus.damageHalf = true;
+      }
+    }
+
+    // 電腦為 Driver團合體 (最強團體 OP 奧義) 時的招式機制
+    const isOppDriverCombo = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("Driver團合體");
+    if (isOppDriverCombo) {
+      if (move.name.includes("DRIVE") || move.key === "一起") {
+        damage = 999999999999999;
+        triggerScreenShake();
+        updateTurnBadge("🔥🌌 對手【最強團體 OP 奧義】全員集結！一起發動【領域展開，DRIVE！！！！】！全場灰飛煙滅，造成無限毀滅重創！");
+      } else if (move.name.includes("超級自爆")) {
+        damage = 999999999999999;
+        triggerScreenShake();
+        updateTurnBadge("💣💥 對手【Driver團合體】八塊腹肌團長發動【超級自爆！】引爆全場！造成無限毀滅傷害！");
+      } else if (move.name.includes("發怒干")) {
+        damage = 8000;
+        triggerScreenShake();
+        updateTurnBadge("💢⚡ 對手【Driver團合體】陳豆豆狂暴大叫「干！」觸發 100% 黑閃暴擊！造成 8000 點重擊！");
+      } else if (move.name.includes("自己掰開")) {
+        playerStatus.damageHalf = true;
+        triggerScreenShake();
+        updateTurnBadge("👐✨ 對手【Driver團合體】給佬姜敦硯【自己掰開！】造成 15000 傷害！我方牌傷害永久大幅削弱！");
+      } else if (move.name.includes("反掰開")) {
+        damage = 5000;
+        triggerScreenShake();
+        updateTurnBadge("🐕💥 對手【Driver團合體】林走狗咆哮反擊【反掰開！】！造成 5000 點傷害！");
+      }
+    }
+
+    // 電腦為 盧三角 時的招式機制
+    const isOppLu = (opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("盧三角")) ||
+      (opponentStackedCard && opponentStackedCard.name && opponentStackedCard.name.includes("盧三角"));
+    if (isOppLu) {
+      if (move.name.includes("三角銳角攻擊")) {
+        triggerScreenShake();
+        updateTurnBadge(`📐 對手【盧三角】發動【三角銳角攻擊】(67^2)！幾何銳角精準切割，造成 ${damage} (4489) 點高額暴擊傷害！`);
+      } else if (move.name.includes("三角衝刺")) {
+        triggerScreenShake();
+        updateTurnBadge(`🔺💨 對手【盧三角】高速啟動【三角衝刺】！造成 ${damage} 點極速衝撞重擊！`);
+      } else if (move.name.includes("不搞了")) {
+        playerStatus.stunned = true;
+        triggerScreenShake();
+        updateTurnBadge(`🔺 對手【盧三角】施展【三角....不搞了】！造成 ${damage} 傷害！我方滿臉問號直接傻眼，不能發招一局！`);
+      } else if (move.name.includes("羅波攻擊")) {
+        triggerScreenShake();
+        updateTurnBadge(`🥕 對手【盧三角】大力投擲巨型【羅波攻擊】！造成 ${damage} 點沉重打擊！`);
+      } else if (move.name.includes("性感動作")) {
+        playerStatus.stunned = true;
+        triggerScreenShake();
+        updateTurnBadge(`💃 對手【盧三角】突然擺出極度魅惑的【性感動作】！造成 ${damage} 點精神暴擊！我方完全看呆，停止出招一回合！`);
+      } else if (move.name.includes("火柴人") || move.name.includes("貓貓")) {
+        triggerScreenShake();
+        updateTurnBadge(`🐱 對手【盧三角】召喚【火柴人&貓貓】！(1+1+1+1+1+0+0+4+4+4)*70 算式連攜爆發，造成 ${damage} 點連續重創！`);
       }
     }
 
@@ -2984,13 +3381,52 @@ function decrementCooldowns() {
 }
 
 function parseDamageValue(damageStr) {
-  if (damageStr === "無限") return 999999;
-  if (damageStr.includes("999999")) return 999999;
+  if (typeof damageStr === "number") return damageStr;
+  if (!damageStr) return 0;
+  damageStr = String(damageStr).trim();
+  // 支援 ∞ (無窮大符號) 與 "無限"
+  if (damageStr.includes("∞") || damageStr.includes("無限") || damageStr.includes("999999")) return 999999999;
+
+  // 支援數學運算式，如 67^2, (1+1+1+1+1+0+0+4+4+4)*70
+  try {
+    const expr = damageStr.replace(/\^/g, "**");
+    // 安全過濾：只允許數字、加減乘除次方、括號、小數點與空白
+    if (/^[0-9+\-*/().\s*]+$/.test(expr)) {
+      const val = Function(`"use strict"; return (${expr});`)();
+      if (!isNaN(val) && isFinite(val)) {
+        return Math.floor(val);
+      }
+    }
+  } catch (e) {}
+
   return parseInt(damageStr) || 0;
 }
 
 function applyDamage(target, amount, attackerStatus, defenderStatus) {
   let finalDamage = amount;
+
+  // 完全無敵防護檢驗（除非對手也為進化翻面後的 Driver 團合體牌）
+  if (target === "player") {
+    if (activePlayerCard && activePlayerCard.isFullyInvincible) {
+      const isOppEvolvedCombo = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("Driver") && opponentActiveCard.isFullyInvincible;
+      if (!isOppEvolvedCombo) {
+        finalDamage = 0;
+        triggerScreenShake();
+        updateTurnBadge("🛡️✨【Driver團合體】處於【完全無敵狀態】！免疫對手一切傷害與必殺！受到 0 點傷害！");
+        return;
+      }
+    }
+  } else if (target === "opponent") {
+    if (opponentActiveCard && opponentActiveCard.isFullyInvincible) {
+      const isPlayerEvolvedCombo = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("Driver") && activePlayerCard.isFullyInvincible;
+      if (!isPlayerEvolvedCombo) {
+        finalDamage = 0;
+        triggerScreenShake();
+        updateTurnBadge("🛡️✨ 對手【Driver團合體】處於【完全無敵狀態】！免疫我方一切攻擊！造成 0 點傷害！");
+        return;
+      }
+    }
+  }
 
   // 姜敦硯機制：弱化倍率與全局領域壓制倍率
   if (target === "opponent") {
@@ -3139,14 +3575,17 @@ function selectCardForEditing(index) {
   currentEditingIndex = index;
   editingCardData = JSON.parse(JSON.stringify(cards[index]));
 
-  // 填入基本欄位
-  if (editCardName) editCardName.value = editingCardData.name;
-  if (editCardDikra) editCardDikra.value = editingCardData.dikra;
-  if (editCardChakra) editCardChakra.value = editingCardData.chakra;
-  if (editCardHealth) editCardHealth.value = editingCardData.health;
+  previewShowingBack = false;
+
+  // 填入正面基本欄位
+  if (editCardName) editCardName.value = editingCardData.name || "";
+  if (editCardDikra) editCardDikra.value = editingCardData.dikra || "";
+  if (editCardChakra) editCardChakra.value = editingCardData.chakra || "";
+  if (editCardHealth) editCardHealth.value = editingCardData.health || "";
   if (editCardPassive) editCardPassive.value = editingCardData.passive || "";
 
   renderMovesForm();
+  renderBackCardUI();
   updateLivePreview();
 }
 
@@ -3286,6 +3725,283 @@ function bindMoveEvents() {
   });
 }
 
+// =========================================
+// 卡牌背面設計邏輯 (若沒點擊按鈕絕不自動加入背面)
+// =========================================
+function renderBackCardUI() {
+  const hasBack = Boolean(editingCardData && editingCardData.backCard);
+
+  if (hasBack) {
+    if (backCardToggleBox) backCardToggleBox.hidden = true;
+    if (backCardFormBody) {
+      backCardFormBody.hidden = false;
+      backCardFormBody.removeAttribute("hidden");
+    }
+    if (backCardStateTag) {
+      backCardStateTag.textContent = "【目前：雙面卡 (已啟用背面)】";
+      backCardStateTag.classList.add("is-double");
+    }
+    if (previewFlipBtn) {
+      previewFlipBtn.hidden = false;
+      previewFlipBtn.removeAttribute("hidden");
+    }
+
+    // 填入背面表單
+    if (editBackCardName) editBackCardName.value = editingCardData.backCard.name || "";
+    if (editBackCardDikra) editBackCardDikra.value = editingCardData.backCard.dikra || "";
+    if (editBackCardChakra) editBackCardChakra.value = editingCardData.backCard.chakra || "";
+    if (editBackCardHealth) editBackCardHealth.value = editingCardData.backCard.health || "";
+    if (editBackCardPassive) editBackCardPassive.value = editingCardData.backCard.passive || "";
+
+    renderBackMovesForm();
+  } else {
+    if (backCardToggleBox) {
+      backCardToggleBox.hidden = false;
+      backCardToggleBox.removeAttribute("hidden");
+    }
+    if (backCardFormBody) backCardFormBody.hidden = true;
+    if (backCardStateTag) {
+      backCardStateTag.textContent = "【目前：單面卡】";
+      backCardStateTag.classList.remove("is-double");
+    }
+    if (previewFlipBtn) previewFlipBtn.hidden = true;
+    previewShowingBack = false;
+
+    // 清空背面欄位
+    if (editBackCardName) editBackCardName.value = "";
+    if (editBackCardDikra) editBackCardDikra.value = "";
+    if (editBackCardChakra) editBackCardChakra.value = "";
+    if (editBackCardHealth) editBackCardHealth.value = "";
+    if (editBackCardPassive) editBackCardPassive.value = "";
+    if (backMovesEditContainer) backMovesEditContainer.innerHTML = "";
+  }
+}
+
+function renderBackMovesForm() {
+  if (!backMovesEditContainer || !editingCardData || !editingCardData.backCard) return;
+  backMovesEditContainer.innerHTML = "";
+
+  const backMoves = editingCardData.backCard.moves || [];
+  backMoves.forEach((move, moveIndex) => {
+    const moveCard = document.createElement("div");
+    moveCard.className = "move-card-edit";
+
+    const hasSpecial = move.specialMechanic !== undefined && move.specialMechanic !== null;
+
+    moveCard.innerHTML = `
+      <div class="move-card-header">
+        <span class="move-badge-title" style="color: #ffc857;">背面招式 ${moveIndex + 1}</span>
+        ${backMoves.length > 1 ? `<button class="delete-back-move-btn" type="button" title="刪除招式" data-index="${moveIndex}">✕</button>` : ""}
+      </div>
+      <div class="move-fields-row">
+        <div class="form-field">
+          <label>按鍵</label>
+          <input type="text" class="editor-input back-move-key-input" value="${move.key || ""}" placeholder="如: M1, Z" data-index="${moveIndex}" />
+        </div>
+        <div class="form-field">
+          <label>攻擊名稱</label>
+          <input type="text" class="editor-input back-move-name-input" value="${move.name || ""}" placeholder="背面攻擊名" data-index="${moveIndex}" />
+        </div>
+        <div class="form-field">
+          <label>傷害</label>
+          <input type="text" class="editor-input back-move-damage-input" value="${move.damage || ""}" placeholder="如: 1000" data-index="${moveIndex}" />
+        </div>
+        <div class="form-field">
+          <label>冷卻(回合)</label>
+          <input type="number" min="0" max="99" class="editor-input back-move-cooldown-input" value="${move.cooldown !== undefined ? move.cooldown : (move.key === 'M1' ? 0 : 1)}" placeholder="0" data-index="${moveIndex}" />
+        </div>
+      </div>
+      
+      <div class="special-mechanic-wrapper">
+        ${hasSpecial
+        ? `
+          <div class="mechanic-field-box">
+            <div class="mechanic-header">
+              <label>特殊機制設定</label>
+              <button type="button" class="remove-back-mechanic-btn" data-index="${moveIndex}">✕ 移除特殊機制</button>
+            </div>
+            <input type="text" class="editor-input back-move-special-input" value="${move.specialMechanic}" placeholder="填入特殊機制" data-index="${moveIndex}" />
+          </div>
+        `
+        : `
+          <div class="special-mechanic-toggle">
+            <button class="add-back-mechanic-btn" type="button" data-index="${moveIndex}">+ 加入特殊機制</button>
+            <span style="font-size: 0.78rem; color: #888;">(沒填等於無特殊機制)</span>
+          </div>
+        `
+      }
+      </div>
+    `;
+
+    backMovesEditContainer.appendChild(moveCard);
+  });
+
+  bindBackMoveEvents();
+}
+
+function bindBackMoveEvents() {
+  document.querySelectorAll(".delete-back-move-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.index);
+      if (editingCardData && editingCardData.backCard && editingCardData.backCard.moves) {
+        editingCardData.backCard.moves.splice(idx, 1);
+        renderBackMovesForm();
+        updateLivePreview();
+      }
+    });
+  });
+
+  document.querySelectorAll(".add-back-mechanic-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.index);
+      if (editingCardData && editingCardData.backCard && editingCardData.backCard.moves) {
+        editingCardData.backCard.moves[idx].specialMechanic = "自訂機制";
+        renderBackMovesForm();
+        updateLivePreview();
+      }
+    });
+  });
+
+  document.querySelectorAll(".remove-back-mechanic-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.index);
+      if (editingCardData && editingCardData.backCard && editingCardData.backCard.moves) {
+        delete editingCardData.backCard.moves[idx].specialMechanic;
+        renderBackMovesForm();
+        updateLivePreview();
+      }
+    });
+  });
+
+  document.querySelectorAll(".back-move-key-input").forEach((input) => {
+    input.addEventListener("input", (e) => {
+      const idx = parseInt(e.target.dataset.index);
+      if (editingCardData && editingCardData.backCard) {
+        editingCardData.backCard.moves[idx].key = e.target.value;
+        updateLivePreview();
+      }
+    });
+  });
+
+  document.querySelectorAll(".back-move-name-input").forEach((input) => {
+    input.addEventListener("input", (e) => {
+      const idx = parseInt(e.target.dataset.index);
+      if (editingCardData && editingCardData.backCard) {
+        editingCardData.backCard.moves[idx].name = e.target.value;
+        updateLivePreview();
+      }
+    });
+  });
+
+  document.querySelectorAll(".back-move-damage-input").forEach((input) => {
+    input.addEventListener("input", (e) => {
+      const idx = parseInt(e.target.dataset.index);
+      if (editingCardData && editingCardData.backCard) {
+        editingCardData.backCard.moves[idx].damage = e.target.value;
+        updateLivePreview();
+      }
+    });
+  });
+
+  document.querySelectorAll(".back-move-cooldown-input").forEach((input) => {
+    input.addEventListener("input", (e) => {
+      const idx = parseInt(e.target.dataset.index);
+      if (editingCardData && editingCardData.backCard) {
+        editingCardData.backCard.moves[idx].cooldown = Math.max(0, parseInt(e.target.value) || 0);
+        updateLivePreview();
+      }
+    });
+  });
+
+  document.querySelectorAll(".back-move-special-input").forEach((input) => {
+    input.addEventListener("input", (e) => {
+      const idx = parseInt(e.target.dataset.index);
+      if (editingCardData && editingCardData.backCard) {
+        editingCardData.backCard.moves[idx].specialMechanic = e.target.value;
+        updateLivePreview();
+      }
+    });
+  });
+}
+
+// 點擊「➕ 設計背面 (啟用雙面卡)」按鈕
+if (enableBackCardBtn) {
+  enableBackCardBtn.addEventListener("click", () => {
+    if (!editingCardData) return;
+    editingCardData.backCard = {
+      name: editingCardData.name ? `${editingCardData.name} (背面)` : "背面形態",
+      dikra: editingCardData.dikra || "0",
+      chakra: editingCardData.chakra || "0",
+      health: editingCardData.health || "10000",
+      hasEnergyMeter: false,
+      passive: "",
+      moves: [
+        { key: "M1", name: "普通攻擊", damage: "500", cooldown: 0, energy: 10 },
+        { key: "Z", name: "特殊連擊", damage: "1200", cooldown: 1, energy: 20 },
+      ],
+    };
+    previewShowingBack = true;
+    renderBackCardUI();
+    updateLivePreview();
+    showEditorStatus("已啟用背面設計！現在可以自由為背面設定專屬屬性與招式。");
+  });
+}
+
+// 點擊「✕ 移除背面 (恢復單面卡)」按鈕
+if (removeBackCardBtn) {
+  removeBackCardBtn.addEventListener("click", () => {
+    if (!editingCardData) return;
+    delete editingCardData.backCard;
+    previewShowingBack = false;
+    renderBackCardUI();
+    updateLivePreview();
+    showEditorStatus("已移除卡牌背面，已還原為普通單面卡！");
+  });
+}
+
+// 點擊「新增背面招式」按鈕
+if (addBackMoveBtn) {
+  addBackMoveBtn.addEventListener("click", () => {
+    if (!editingCardData || !editingCardData.backCard) return;
+    if (!editingCardData.backCard.moves) editingCardData.backCard.moves = [];
+    const defaultKeys = ["M1", "Z招", "X招", "C招", "V招", "F招", "G招"];
+    const nextKey = defaultKeys[editingCardData.backCard.moves.length] || `招式${editingCardData.backCard.moves.length + 1}`;
+    editingCardData.backCard.moves.push({
+      key: nextKey,
+      name: "新背面招式",
+      damage: "600",
+      cooldown: 1,
+      energy: 10,
+    });
+    renderBackMovesForm();
+    updateLivePreview();
+  });
+}
+
+// 監聽背面基本屬性輸入
+[editBackCardName, editBackCardDikra, editBackCardChakra, editBackCardHealth, editBackCardPassive].forEach((input) => {
+  if (input) {
+    input.addEventListener("input", () => {
+      if (!editingCardData || !editingCardData.backCard) return;
+      editingCardData.backCard.name = editBackCardName.value;
+      editingCardData.backCard.dikra = editBackCardDikra.value;
+      editingCardData.backCard.chakra = editBackCardChakra.value;
+      editingCardData.backCard.health = editBackCardHealth.value;
+      editingCardData.backCard.passive = editBackCardPassive.value;
+      updateLivePreview();
+    });
+  }
+});
+
+// 即時預覽翻轉按鈕切換
+if (previewFlipBtn) {
+  previewFlipBtn.addEventListener("click", () => {
+    if (!editingCardData || !editingCardData.backCard) return;
+    previewShowingBack = !previewShowingBack;
+    updateLivePreview();
+  });
+}
+
 // 新增招式按鈕
 if (addMoveBtn) {
   addMoveBtn.addEventListener("click", () => {
@@ -3319,27 +4035,60 @@ if (addMoveBtn) {
   }
 });
 
-// 即時預覽更新
+// 即時預覽更新 (支援正面與背面切換預覽)
 function updateLivePreview() {
   if (!editingCardData) return;
 
-  if (previewCardName) previewCardName.textContent = editingCardData.name || "未命名卡牌";
-  if (previewDikra) previewDikra.textContent = editingCardData.dikra || "-";
-  if (previewChakra) previewChakra.textContent = editingCardData.chakra || "-";
-  if (previewHealth) previewHealth.textContent = editingCardData.health || "-";
-  if (previewPassive) previewPassive.textContent = editingCardData.passive || "";
+  const hasBack = Boolean(editingCardData.backCard);
+  const targetCard = (previewShowingBack && hasBack) ? editingCardData.backCard : editingCardData;
+
+  if (previewFlipBtn) {
+    if (hasBack) {
+      previewFlipBtn.hidden = false;
+      previewFlipBtn.removeAttribute("hidden");
+      if (previewShowingBack) {
+        previewFlipBtn.textContent = "🔄 查看正面 (目前: 背面)";
+        previewFlipBtn.classList.add("showing-back");
+      } else {
+        previewFlipBtn.textContent = "🔄 查看背面 (目前: 正面)";
+        previewFlipBtn.classList.remove("showing-back");
+      }
+    } else {
+      previewFlipBtn.hidden = true;
+    }
+  }
+
+  const sideLabel = (previewShowingBack && hasBack) ? " [背面形態]" : "";
+  if (previewCardName) previewCardName.textContent = (targetCard.name || "未命名卡牌") + sideLabel;
+  if (previewDikra) previewDikra.textContent = targetCard.dikra || "-";
+  if (previewChakra) previewChakra.textContent = targetCard.chakra || "-";
+  if (previewHealth) previewHealth.textContent = targetCard.health || "-";
+  if (previewPassive) previewPassive.textContent = targetCard.passive || "";
 
   // 判斷是否需要能量條預覽
-  const hasEnergy = editingCardData.hasEnergyMeter || editingCardData.moves.some((m) => m.specialMechanic && m.specialMechanic.includes("噁心能量條"));
+  const hasEnergy = targetCard.hasEnergyMeter || (targetCard.moves && targetCard.moves.some((m) => m.specialMechanic && m.specialMechanic.includes("噁心能量條")));
   if (previewEnergyMeter) {
     previewEnergyMeter.hidden = !hasEnergy;
   }
 
   if (previewMoveList) {
     previewMoveList.innerHTML = "";
-    editingCardData.moves.forEach((move) => {
+
+    // 若預覽目標為具有海報文字裝飾的卡牌（Driver團背面）
+    const isPosterCard = Boolean(targetCard.hasPosterArt || (targetCard.name && targetCard.name.includes("Driver") && (previewShowingBack || targetCard.name.includes("背面"))));
+    const previewCardEl = document.querySelector("#editorPreviewCard");
+    if (previewCardEl) {
+      previewCardEl.classList.toggle("is-poster-mode", isPosterCard);
+    }
+    if (isPosterCard) {
+      previewMoveList.appendChild(createDriverPosterElement(targetCard));
+    }
+
+    const moves = targetCard.moves || [];
+    moves.forEach((move) => {
       const item = document.createElement("div");
-      item.className = "move-button library-move";
+      const isUltimateDrive = move.name.includes("DRIVE") || move.key === "一起";
+      item.className = `move-button library-move${isUltimateDrive ? " ultimate-drive-button" : ""}`;
       const specialTag = move.specialMechanic ? ` <span style="color:#ffe28a; font-size:0.75rem;">[${move.specialMechanic}]</span>` : "";
       const cdTag = move.cooldown ? ` (CD: ${move.cooldown})` : " (無CD)";
       item.innerHTML = `<span>${move.key}：${move.name}${cdTag}${specialTag}</span><span class="move-energy">${move.damage}</span>`;
@@ -3348,14 +4097,22 @@ function updateLivePreview() {
   }
 }
 
-// 儲存卡牌
+// 儲存卡牌 (嚴格保證：若使用者沒按設計背面，絕不自動加入背面)
 if (saveCardButton) {
   saveCardButton.addEventListener("click", () => {
     if (!editingCardData) return;
 
-    // 自動判斷是否包含噁心能量條特殊機制
+    // 自動判斷正面是否包含噁心能量條特殊機制
     const hasEnergy = editingCardData.moves.some((m) => m.specialMechanic && m.specialMechanic.includes("噁心能量條"));
     editingCardData.hasEnergyMeter = hasEnergy || editingCardData.hasEnergyMeter;
+
+    // 嚴格檢查背面：若使用者沒有點擊「設計背面」按鈕啟用，絕不自動加入背面
+    if (!editingCardData.backCard) {
+      delete editingCardData.backCard;
+    } else {
+      // 確保背面招式與屬性規格化
+      editingCardData.backCard = normalizeCard(editingCardData.backCard);
+    }
 
     // 確保每招基本冷卻設定與特殊機制規格化
     editingCardData = normalizeCard(editingCardData);

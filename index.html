@@ -235,6 +235,64 @@
               </div>
             </div>
 
+            <!-- 卡牌背面設計區塊（按鈕式設計背面，沒按絕不自動加入背面） -->
+            <div class="form-section back-card-management-section">
+              <div class="section-header">
+                <h3>卡牌背面設計 (雙面卡)</h3>
+                <span class="back-card-state-tag" id="backCardStateTag">【目前：單面卡】</span>
+              </div>
+
+              <!-- 尚未啟用背面的按鈕觸發區 -->
+              <div class="back-card-toggle-box" id="backCardToggleBox">
+                <button type="button" class="action-btn back-toggle-btn" id="enableBackCardBtn">➕ 設計背面 (啟用雙面卡)</button>
+                <p class="back-card-hint">💡 提示：若未點擊此按鈕設計背面，此卡牌維持普通單面卡，絕不會自動加入背面！</p>
+              </div>
+
+              <!-- 已啟用背面後的詳細表單區（預設隱藏） -->
+              <div class="back-card-form-body" id="backCardFormBody" hidden>
+                <div class="back-card-toolbar">
+                  <span class="back-toolbar-title">🔄 卡牌背面專屬屬性</span>
+                  <button type="button" class="remove-back-card-btn" id="removeBackCardBtn">✕ 移除背面 (恢復單面卡)</button>
+                </div>
+
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="editBackCardName">背面名稱</label>
+                    <input type="text" id="editBackCardName" class="editor-input" placeholder="例如: Driver團合體 (背面)" />
+                  </div>
+                  <div class="form-field">
+                    <label for="editBackCardDikra">背面迪克拉</label>
+                    <input type="text" id="editBackCardDikra" class="editor-input" placeholder="例如: 999999" />
+                  </div>
+                  <div class="form-field">
+                    <label for="editBackCardChakra">背面查克拉</label>
+                    <input type="text" id="editBackCardChakra" class="editor-input" placeholder="例如: 無限 或 800" />
+                  </div>
+                  <div class="form-field">
+                    <label for="editBackCardHealth">背面血量</label>
+                    <input type="text" id="editBackCardHealth" class="editor-input" placeholder="例如: 15000" />
+                  </div>
+                </div>
+
+                <!-- 背面攻擊招式 -->
+                <div class="back-moves-section">
+                  <div class="section-header" style="margin-top: 0.8rem;">
+                    <h4 style="color: var(--gold); margin: 0; font-size: 0.95rem;">背面攻擊招式</h4>
+                    <button class="add-move-btn" type="button" id="addBackMoveBtn">+ 新增背面招式</button>
+                  </div>
+                  <div class="moves-edit-container" id="backMovesEditContainer">
+                    <!-- 動態注入背面招式 -->
+                  </div>
+                </div>
+
+                <!-- 背面被動說明 -->
+                <div class="form-field" style="margin-top: 0.8rem;">
+                  <label for="editBackCardPassive">背面卡牌被動說明 (Passive)</label>
+                  <textarea id="editBackCardPassive" class="editor-textarea" placeholder="自訂背面被動技能說明（選填）"></textarea>
+                </div>
+              </div>
+            </div>
+
             <div class="editor-actions">
               <button class="start-button save-card-button" type="button" id="saveCardButton">儲存卡牌</button>
               <button class="secondary-button" type="button" id="backHomeButton">回首頁</button>
@@ -244,7 +302,10 @@
 
           <!-- 即時預覽卡牌 -->
           <div class="editor-preview-column">
-            <h3>即時卡牌預覽</h3>
+            <div class="preview-header-row">
+              <h3>即時卡牌預覽</h3>
+              <button type="button" class="preview-flip-btn" id="previewFlipBtn" hidden>🔄 查看背面</button>
+            </div>
             <article class="battle-card preview-card" id="editorPreviewCard">
               <div class="card-title-row">
                 <h2 id="previewCardName">卡牌名稱</h2>
@@ -277,47 +338,47 @@
         </div>
       </div>
     </section>
-  <!-- 雷切小弟弟 能量滿 終極領域展開動畫 -->
-  <div id="raicheUltimateCutscene" class="cutscene-overlay" hidden aria-hidden="true">
-    <div class="cutscene-lightning-canvas"></div>
-    <div class="cutscene-fire-fx"></div>
-    <div class="cutscene-content">
-      <div id="cutsceneTextContainer" class="cutscene-text-box"></div>
+    <!-- 雷切小弟弟 能量滿 終極領域展開動畫 -->
+    <div id="raicheUltimateCutscene" class="cutscene-overlay" hidden aria-hidden="true">
+      <div class="cutscene-lightning-canvas"></div>
+      <div class="cutscene-fire-fx"></div>
+      <div class="cutscene-content">
+        <div id="cutsceneTextContainer" class="cutscene-text-box"></div>
+      </div>
+      <!-- 涵蓋整個螢幕的冥王動畫播放舞台與黑塊遮罩 -->
+      <div id="cutsceneVideoWrapper" class="cutscene-video-wrapper" hidden>
+        <div class="cutscene-video-stage">
+          <video id="cutsceneVideo" class="cutscene-video" src="冥王動畫1080畫質.mp4" playsinline preload="auto"></video>
+          <!-- 黑色區塊：擋住頂部/兩側/底部白色區塊及下面那隻烏薩奇 -->
+          <div class="video-blocker blocker-top" aria-hidden="true"></div>
+          <div class="video-blocker blocker-bottom" aria-hidden="true"></div>
+          <div class="video-blocker blocker-left" aria-hidden="true"></div>
+          <div class="video-blocker blocker-right" aria-hidden="true"></div>
+          <div class="video-blocker blocker-usagi" aria-hidden="true"></div>
+        </div>
+      </div>
+      <button type="button" id="cutsceneSkipBtn" class="cutscene-skip-btn">跳過動畫 ⏩</button>
     </div>
-    <!-- 涵蓋整個螢幕的冥王動畫播放舞台與黑塊遮罩 -->
-    <div id="cutsceneVideoWrapper" class="cutscene-video-wrapper" hidden>
-      <div class="cutscene-video-stage">
-        <video id="cutsceneVideo" class="cutscene-video" src="冥王動畫1080畫質.mp4" playsinline preload="auto"></video>
-        <!-- 黑色區塊：擋住頂部/兩側/底部白色區塊及下面那隻烏薩奇 -->
-        <div class="video-blocker blocker-top" aria-hidden="true"></div>
-        <div class="video-blocker blocker-bottom" aria-hidden="true"></div>
-        <div class="video-blocker blocker-left" aria-hidden="true"></div>
-        <div class="video-blocker blocker-right" aria-hidden="true"></div>
-        <div class="video-blocker blocker-usagi" aria-hidden="true"></div>
+
+    <!-- 「絕招」紅色大喊招式特效 -->
+    <div id="ultimateSkillShoutout" class="shoutout-overlay" hidden aria-hidden="true">
+      <div class="shoutout-backdrop"></div>
+      <div class="shoutout-container">
+        <div class="shoutout-subtitle">⚡ 絕 招 必 殺 ⚡</div>
+        <div id="shoutoutMoveName" class="shoutout-title">招式名稱</div>
       </div>
     </div>
-    <button type="button" id="cutsceneSkipBtn" class="cutscene-skip-btn">跳過動畫 ⏩</button>
-  </div>
 
-  <!-- 「絕招」紅色大喊招式特效 -->
-  <div id="ultimateSkillShoutout" class="shoutout-overlay" hidden aria-hidden="true">
-    <div class="shoutout-backdrop"></div>
-    <div class="shoutout-container">
-      <div class="shoutout-subtitle">⚡ 絕 招 必 殺 ⚡</div>
-      <div id="shoutoutMoveName" class="shoutout-title">招式名稱</div>
+    <!-- 5秒超華麗綠色終極連鎖大爆炸覆蓋層 -->
+    <div id="megaGreenExplosionOverlay" class="mega-explosion-overlay" hidden aria-hidden="true">
+      <div class="explosion-flash-bg"></div>
+      <canvas id="megaExplosionCanvas" class="mega-explosion-canvas"></canvas>
     </div>
-  </div>
 
-  <!-- 5秒超華麗綠色終極連鎖大爆炸覆蓋層 -->
-  <div id="megaGreenExplosionOverlay" class="mega-explosion-overlay" hidden aria-hidden="true">
-    <div class="explosion-flash-bg"></div>
-    <canvas id="megaExplosionCanvas" class="mega-explosion-canvas"></canvas>
-  </div>
+    <!-- 爆炸期間全域按鍵與點擊鎖定層（讓玩家不能按任何按鍵） -->
+    <div id="inputLockdownOverlay" class="input-lockdown-overlay" hidden aria-hidden="true"></div>
 
-  <!-- 爆炸期間全域按鍵與點擊鎖定層（讓玩家不能按任何按鍵） -->
-  <div id="inputLockdownOverlay" class="input-lockdown-overlay" hidden aria-hidden="true"></div>
-
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 
 </html>

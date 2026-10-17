@@ -1,0 +1,330 @@
+[
+  {
+    "name": "雷切小弟弟",
+    "dikra": "99999999999999",
+    "chakra": "400",
+    "health": "15000",
+    "hasEnergyMeter": true,
+    "passive": "噁心能量條集滿發動\"領域展開，超究極冥王拔不出來術登登登dua郎之炮\"",
+    "moves": [
+      {
+        "key": "M1",
+        "name": "雷刀連擊",
+        "energy": 10,
+        "cooldown": 0,
+        "damage": "350",
+        "specialMechanic": "噁心能量條+10%",
+        "unlockAfterTurns": 0
+      },
+      {
+        "key": "Z",
+        "name": "嘟",
+        "energy": 5,
+        "cooldown": 0,
+        "damage": "400",
+        "specialMechanic": "噁心能量條+5%"
+      },
+      {
+        "key": "X",
+        "name": "迪克滿天飛之陣",
+        "energy": 20,
+        "cooldown": 0,
+        "damage": "700",
+        "specialMechanic": "噁心能量條+20%"
+      },
+      {
+        "key": "C",
+        "name": "三重打包",
+        "energy": 40,
+        "cooldown": 1,
+        "damage": "5000",
+        "specialMechanic": "噁心能量條+40%"
+      },
+      {
+        "key": "V",
+        "name": "領域展開，",
+        "energy": 50,
+        "cooldown": 2,
+        "unlockAfterTurns": 4,
+        "damage": "999999999999999999",
+        "specialMechanic": "(絕招) 可以選擇你要「做死、傳說對接、視獄偽境、真Dixx不斷、迪克崩壞、(Censored)」擇一發動領域"
+      },
+      {
+        "key": "F",
+        "name": "究極冥王炮",
+        "energy": 100,
+        "cooldown": 2,
+        "unlockAfterTurns": 6,
+        "damage": "17000",
+        "specialMechanic": "(絕招) 開局7回合後解鎖"
+      },
+      {
+        "key": "G",
+        "name": "爸爸堅強又金色狂風七人隊八級大，大牛比較懶又玩高鐵的工人有他",
+        "energy": 10,
+        "cooldown": 1,
+        "damage": "0",
+        "specialMechanic": "對方卡牌所有字元變成亂碼，所有攻擊的排列順序隨機互換，電腦正常運作但點下去的位置會變"
+      }
+    ]
+  },
+  {
+    "name": "黃楷程",
+    "dikra": "11111111111111",
+    "chakra": "無",
+    "health": "11000",
+    "hasEnergyMeter": false,
+    "passive": "切換腳切強化M1，棒子與體術連攜壓制。",
+    "moves": [
+      {
+        "key": "M1",
+        "name": "雷切",
+        "energy": 5,
+        "cooldown": 0,
+        "damage": "10000",
+        "unlockAfterTurns": 0
+      },
+      {
+        "key": "Z",
+        "name": "切換腳切",
+        "energy": 10,
+        "cooldown": 2,
+        "damage": "0",
+        "specialMechanic": "雷切變成腳切，腳切傷害5000"
+      },
+      {
+        "key": "X",
+        "name": "後撤步雷切",
+        "energy": 15,
+        "cooldown": 1,
+        "damage": "700",
+        "specialMechanic": "加上1000防禦"
+      },
+      {
+        "key": "C",
+        "name": "棒子配合腳切組合",
+        "energy": 20,
+        "cooldown": 2,
+        "damage": "3000"
+      },
+      {
+        "key": "V",
+        "name": "阿嚕霸牆壁combo",
+        "energy": 35,
+        "cooldown": 3,
+        "unlockAfterTurns": 2,
+        "damage": "10000",
+        "specialMechanic": "開局3回合後解鎖(絕招)"
+      },
+      {
+        "key": "F",
+        "name": "領域展開，無限之切",
+        "energy": 100,
+        "cooldown": 7,
+        "unlockAfterTurns": 4,
+        "damage": "無限",
+        "specialMechanic": "開局5回合後解鎖(絕招)"
+      }
+    ]
+  },
+  {
+    "name": "八塊腹肌Driver團團長",
+    "dikra": "9999999999999999999",
+    "chakra": "無限",
+    "health": "19999",
+    "hasEnergyMeter": false,
+    "passive": "passive：八塊腹肌具有堅不可摧的防禦，足以扭曲時空。",
+    "moves": [
+      {
+        "key": "M1",
+        "name": "屌切",
+        "energy": 10,
+        "cooldown": 0,
+        "damage": "500",
+        "unlockAfterTurns": 0
+      },
+      {
+        "key": "Z招",
+        "name": "起來砸你屌",
+        "energy": 15,
+        "cooldown": 0,
+        "damage": "600"
+      },
+      {
+        "key": "X招",
+        "name": "切換人格騙術色誘",
+        "energy": 20,
+        "cooldown": 1,
+        "damage": "200 (對手停止發招一局)",
+        "specialMechanic": "對手停止發招一局"
+      },
+      {
+        "key": "C招",
+        "name": "黑洞吸引",
+        "energy": 30,
+        "cooldown": 0,
+        "damage": "1100"
+      },
+      {
+        "key": "V招",
+        "name": "召喚八塊腹肌",
+        "energy": 40,
+        "cooldown": 2,
+        "damage": "0 (獲得2000防禦力)",
+        "specialMechanic": "獲得2000防禦力"
+      },
+      {
+        "key": "F招",
+        "name": "超級自爆！！！！",
+        "energy": 100,
+        "cooldown": 4,
+        "unlockAfterTurns": 5,
+        "damage": "無限",
+        "specialMechanic": "(絕招) 開局6回合後解鎖"
+      }
+    ]
+  },
+  {
+    "name": "陳豆豆",
+    "dikra": "0",
+    "chakra": "怒氣",
+    "health": "12000",
+    "hasEnergyMeter": false,
+    "passive": "狂怒大叫：大叫「干！」激發極致怒氣，50%機率黑閃暴擊(傷害x1.5)，並召喚Driver團長屌切連攜！",
+    "moves": [
+      {
+        "key": "G",
+        "name": "發怒+大叫干+50%黑閃+召喚Driver團團長衝過去屌切",
+        "energy": 50,
+        "cooldown": 2,
+        "damage": "6000",
+        "specialMechanic": "(絕招) 此招式50%黑閃將會把傷害x1.5，加上八塊腹肌Driver團團長的屌切傷害"
+      }
+    ]
+  },
+  {
+    "name": "給佬®+姜敦硯",
+    "dikra": "0",
+    "chakra": "28328",
+    "health": "10000",
+    "hasEnergyMeter": false,
+    "passive": "強制掰開壓制：靠近對手後解鎖全套掰開連招，削弱對手輸出、釋放畫面雜訊干擾，存活五局後領域展開全面壓制！",
+    "moves": [
+      {
+        "key": "M1",
+        "name": "靠近對方",
+        "energy": 10,
+        "cooldown": 0,
+        "damage": "0",
+        "specialMechanic": "先使用這招才可以解鎖其他招式",
+        "unlockAfterTurns": 0
+      },
+      {
+        "key": "Z",
+        "name": "衝上前掰開",
+        "energy": 25,
+        "cooldown": 0,
+        "damage": "3000",
+        "specialMechanic": "對方目前戰鬥牌打出的傷害永久減半",
+        "unlockAfterTurns": 0
+      },
+      {
+        "key": "X",
+        "name": "塗滿雙手精X，把人家的頭掰開",
+        "damage": "4000",
+        "cooldown": 1,
+        "energy": 10,
+        "specialMechanic": "對方目前戰鬥牌打出的傷害再次/3",
+        "unlockAfterTurns": 0
+      },
+      {
+        "key": "C",
+        "name": "把你耳朵掰開，塞Dixx進去",
+        "damage": "5000",
+        "cooldown": 2,
+        "energy": 10,
+        "specialMechanic": "對方螢幕出現雜訊效果直到這張牌陣亡",
+        "unlockAfterTurns": 0
+      },
+      {
+        "key": "V",
+        "name": "領域展開，自己掰開",
+        "damage": "15000",
+        "cooldown": 4,
+        "energy": 10,
+        "unlockAfterTurns": 3,
+        "specialMechanic": "(絕招) 這張牌存活四局後才解鎖，出這招後對方以後不管任何牌打出的攻擊都會變成1/4倍"
+      },
+      {
+        "key": "F",
+        "name": "快速下樓梯招，團長幫忙",
+        "damage": "0",
+        "cooldown": 1,
+        "energy": 10,
+        "specialMechanic": "回復血量2000",
+        "unlockAfterTurns": 0
+      }
+    ]
+  },
+  {
+    "name": "林走狗",
+    "dikra": "1000000",
+    "chakra": "500",
+    "health": "1050",
+    "hasEnergyMeter": false,
+    "passive": "血量跟狗一樣：身板脆弱如狗，但對姜敦硯具備絕對特攻，並能隨時召喚強大的Driver團長前來救援！",
+    "moves": [
+      {
+        "key": "M1",
+        "name": "吠",
+        "damage": "800",
+        "energy": 10,
+        "cooldown": 0,
+        "unlockAfterTurns": 0,
+        "specialMechanic": "普通攻擊"
+      },
+      {
+        "key": "Z",
+        "name": "反掰開",
+        "damage": "1200",
+        "energy": 25,
+        "cooldown": 1,
+        "specialMechanic": "(絕招) 若對手是姜敦硯必殺"
+      },
+      {
+        "key": "X",
+        "name": "往你嘴裡塞迪克",
+        "damage": "500",
+        "cooldown": 1,
+        "energy": 10,
+        "specialMechanic": "對方停止出招一局"
+      },
+      {
+        "key": "C",
+        "name": "召喚團長",
+        "damage": "500",
+        "cooldown": 0,
+        "energy": 10,
+        "specialMechanic": "將Driver團長疊牌至自己戰鬥牌區(雙卡同時在場共鬥，不論團長是生是死是對方還是我的)"
+      }
+    ]
+  },
+  {
+    "name": "Driver團合體",
+    "dikra": "-99999999999999999",
+    "chakra": "無限",
+    "health": "12000",
+    "hasEnergyMeter": false,
+    "passive": "Driver們的威力",
+    "moves": [
+      {
+        "key": "G",
+        "name": "領域展開，超級自爆，林狗加成合體，給佬掰開加成，陳豆發怒100%大干黑閃",
+        "damage": "無限",
+        "energy": 10,
+        "cooldown": 0,
+        "specialMechanic": "若對方也是團合體牌，將進入剪刀石頭布的對決，贏的可以拿掉對方，免疫雷切小弟弟的超究極冥王拔不出來數雷切節刀燈燈燈dua郎之泡，本卡牌還有另一面，只有你的卡牌蒐集到了所有團員\"八塊腹肌Driver團團長、給佬+姜敦硯、林走狗、陳豆豆\"就可以翻面"
+      }
+    ]
+  }
+]
