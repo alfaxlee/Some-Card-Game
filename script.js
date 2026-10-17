@@ -10,6 +10,7 @@ const difficultyStatus = document.querySelector("#difficultyStatus");
 const aiStatus = document.querySelector("#aiStatus");
 const turnIndicator = document.querySelector("#turnIndicator");
 const drawButton = document.querySelector("#drawButton");
+const redrawButton = document.querySelector("#redrawButton");
 const cardPanel = document.querySelector("#cardPanel");
 const emptyFieldSlot = document.querySelector("#emptyFieldSlot");
 const playerHand = document.querySelector("#playerHand");
@@ -18,6 +19,27 @@ const moveList = document.querySelector("#moveList");
 const energyFill = document.querySelector("#energyFill");
 const energyValue = document.querySelector("#energyValue");
 const backHomeButton = document.querySelector("#backHomeButton");
+
+// 雙卡同場出戰 DOM 元素
+const playerFieldSlot = document.querySelector("#playerFieldSlot");
+const opponentFieldSlot = document.querySelector("#opponentFieldSlot");
+const playerSecondCardPanel = document.querySelector("#playerSecondCardPanel");
+const cardSecondName = document.querySelector("#cardSecondName");
+const cardSecondHealth = document.querySelector("#cardSecondHealth");
+const cardSecondDikra = document.querySelector("#cardSecondDikra");
+const cardSecondChakra = document.querySelector("#cardSecondChakra");
+const cardSecondPassive = document.querySelector("#cardSecondPassive");
+const playerSecondDefense = document.querySelector("#playerSecondDefense");
+const secondMoveList = document.querySelector("#secondMoveList");
+
+const opponentSecondCardPanel = document.querySelector("#opponentSecondCardPanel");
+const opponentSecondCardName = document.querySelector("#opponentSecondCardName");
+const opponentSecondHealth = document.querySelector("#opponentSecondHealth");
+const opponentSecondDikra = document.querySelector("#opponentSecondDikra");
+const opponentSecondChakra = document.querySelector("#opponentSecondChakra");
+const opponentSecondPassive = document.querySelector("#opponentSecondPassive");
+const opponentSecondDefense = document.querySelector("#opponentSecondDefense");
+const opponentSecondMoveList = document.querySelector("#opponentSecondMoveList");
 
 const battleResultModal = document.querySelector("#battleResultModal");
 const resultTitle = document.querySelector("#resultTitle");
@@ -32,6 +54,7 @@ let pendingDomainMove = null;
 // 編輯器相關 DOM
 const cardSelectDropdown = document.querySelector("#cardSelectDropdown");
 const newCardBtn = document.querySelector("#newCardBtn");
+const deleteCardBtn = document.querySelector("#deleteCardBtn");
 const resetCardsBtn = document.querySelector("#resetCardsBtn");
 const editCardName = document.querySelector("#editCardName");
 const editCardDikra = document.querySelector("#editCardDikra");
@@ -89,6 +112,7 @@ let playerStackedMaxHP = 0; // 我方疊牌卡牌最大血量
 let opponentStackedCard = null; // 對手戰鬥牌區疊牌卡牌
 let opponentStackedHP = 0; // 對手疊牌卡牌血量
 let opponentStackedMaxHP = 0; // 對手疊牌卡牌最大血量
+let playerDualActions = { card1Done: false, card2Done: false }; // 我方雙卡同場每局各自發一招狀態
 let playerStatus = { defense: 0, damageHalf: false, stunned: false };
 let opponentStatus = { defense: 0, damageHalf: false, stunned: false };
 let playerCardDamageMult = 1; // 當前卡牌傷害倍率 (Z/X招削弱)
@@ -243,7 +267,7 @@ const defaultCards = [
       { key: "M1", name: "吠", damage: "800", energy: 10, cooldown: 0, unlockAfterTurns: 0, specialMechanic: "普通攻擊" },
       { key: "Z", name: "反掰開", damage: "1200", energy: 25, cooldown: 1, specialMechanic: "(絕招) 若對手是姜敦硯必殺" },
       { key: "X", name: "往你嘴裡塞迪克", damage: "500", cooldown: 1, energy: 10, specialMechanic: "對方停止出招一局" },
-      { key: "C", name: "召喚團長", damage: "500", cooldown: 0, energy: 10, specialMechanic: "將Driver團長疊牌至自己戰鬥牌區(雙卡同時在場共鬥，不論團長是生是死是對方還是我的)" },
+      { key: "C", name: "召喚團長", damage: "500", cooldown: 0, energy: 10, specialMechanic: "召喚八塊腹肌Driver團長登場並列出戰！兩張牌皆在場上不合體，每局兩張牌各可發一招！(不論團長是生是死是對方的還是我的)" },
     ],
   },
   {
@@ -444,8 +468,14 @@ function loadCustomCards() {
     if (saved) {
       let parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // 徹底刪除新卡牌 5
-        parsed = parsed.filter((c) => !c.name || (!c.name.includes("新卡牌 5") && !c.name.includes("新卡牌5")));
+        // 徹底刪除意外建立的新卡牌 (如 新卡牌 5、新卡牌 9、9)
+        parsed = parsed.filter((c) => {
+          if (!c || !c.name) return false;
+          const name = String(c.name).trim();
+          if (name === "新卡牌 9" || name === "新卡牌9" || name === "9" || name === "新卡牌 5" || name === "新卡牌5") return false;
+          if (name.startsWith("新卡牌 9") || name.startsWith("新卡牌9")) return false;
+          return true;
+        });
 
         // 保留第二個版本的給佬+姜敦硯，清除多餘舊版
         const geilaoDef = defaultCards.find((c) => c.name.includes("給佬") || c.name.includes("姜敦硯"));
@@ -503,6 +533,15 @@ function loadCustomCards() {
 }
 
 let cards = loadCustomCards();
+// 確保記憶體中的卡牌也徹底移除新卡牌 9 與新卡牌 5
+cards = cards.filter((c) => {
+  if (!c || !c.name) return false;
+  const name = String(c.name).trim();
+  if (name === "新卡牌 9" || name === "新卡牌9" || name === "9" || name === "新卡牌 5" || name === "新卡牌5") return false;
+  if (name.startsWith("新卡牌 9") || name.startsWith("新卡牌9")) return false;
+  return true;
+});
+saveCustomCards();
 
 function saveCustomCards() {
   try {
@@ -1362,6 +1401,10 @@ function startBattleSession() {
     drawButton.textContent = "抽牌";
     drawButton.disabled = false;
   }
+  if (redrawButton) {
+    redrawButton.hidden = true;
+    redrawButton.setAttribute("hidden", "");
+  }
 
   updateTurnBadge("準備抽牌與出牌");
   renderHand();
@@ -1369,32 +1412,63 @@ function startBattleSession() {
   updateFieldDisplay();
 }
 
-if (drawButton) {
-  drawButton.addEventListener("click", () => {
-    clearAllBattleEffects(); // 發牌開始新局時清除所有殘留干擾效果
-    // 洗牌並將所有卡牌盡可能發完；若卡牌數量為奇數，隨機選一張不發，剩下平分給雙方
-    const pool = cards.map((c) => JSON.parse(JSON.stringify(c))).sort(() => Math.random() - 0.5);
-    let discardedCardName = "";
-    if (pool.length % 2 !== 0 && pool.length > 0) {
-      const removed = pool.pop(); // 奇數時選一張不發
-      discardedCardName = removed.name;
-    }
+function dealCards(isRedraw = false) {
+  clearAllBattleEffects(); // 發牌開始新局時清除所有殘留干擾效果
 
-    const half = Math.floor(pool.length / 2);
-    playerHandCards = pool.slice(0, half);
-    opponentHandCards = pool.slice(half);
+  let availablePool = cards.map((c) => JSON.parse(JSON.stringify(c)));
+  if (activePlayerCard || opponentActiveCard) {
+    const activeNames = [
+      activePlayerCard ? activePlayerCard.name : null,
+      playerStackedCard ? playerStackedCard.name : null,
+      opponentActiveCard ? opponentActiveCard.name : null,
+      opponentStackedCard ? opponentStackedCard.name : null,
+    ].filter(Boolean);
+    availablePool = availablePool.filter((c) => !activeNames.includes(c.name));
+  }
 
-    drawButton.textContent = "已發牌";
-    drawButton.disabled = true;
-    renderHand();
-    renderOpponentHand();
-    updateDeckCounts();
+  const pool = availablePool.sort(() => Math.random() - 0.5);
+  let discardedCardName = "";
+  if (pool.length % 2 !== 0 && pool.length > 0) {
+    const removed = pool.pop(); // 奇數時選一張不發
+    discardedCardName = removed.name;
+  }
 
-    // 如果雙方場上皆無牌，提示玩家出牌
+  const half = Math.floor(pool.length / 2);
+  playerHandCards = pool.slice(0, half);
+  opponentHandCards = pool.slice(half);
+
+  renderHand();
+  renderOpponentHand();
+  updateDeckCounts();
+  updateBattleCardsVisual();
+
+  if (isRedraw) {
+    triggerScreenShake();
+    updateTurnBadge(`🔄【重抽成功】手牌已重新洗牌發放（雙方手牌各 ${half} 張${discardedCardName ? `，【${discardedCardName}】本局輪空` : ""}）！可無限次重抽，滿意後點選卡牌上場！`);
+  } else {
     if (!activePlayerCard) {
       const discardNotice = discardedCardName ? `（牌庫總數為奇數，【${discardedCardName}】本局輪空不發）` : "";
-      updateTurnBadge(`所有卡牌已全數發完（雙方手牌各 ${half} 張${discardNotice}），請點選下方卡牌上場！`);
+      updateTurnBadge(`所有卡牌已全數發完（雙方手牌各 ${half} 張${discardNotice}），請點選下方卡牌上場！若想更換手牌可點擊【重抽】！`);
     }
+  }
+}
+
+if (drawButton) {
+  drawButton.addEventListener("click", () => {
+    dealCards(false);
+    drawButton.textContent = "已發牌";
+    drawButton.disabled = true;
+    if (redrawButton) {
+      redrawButton.hidden = false;
+      redrawButton.removeAttribute("hidden");
+      redrawButton.disabled = false;
+    }
+  });
+}
+
+if (redrawButton) {
+  redrawButton.addEventListener("click", () => {
+    dealCards(true);
   });
 }
 
@@ -1682,18 +1756,20 @@ function createStackedBattleMoves(cardA, cardB) {
     ...m,
     ownerCard: cardA,
     ownerLabel: nameA,
+    cardIndex: 1,
   }));
 
   const movesB = createBattleMoves(cardB).map((m) => ({
     ...m,
     ownerCard: cardB,
     ownerLabel: nameB,
+    cardIndex: 2,
   }));
 
   return [...movesA, ...movesB];
 }
 
-// 我方疊牌切換前排主位與底層位置
+// 我方戰鬥牌切換前排主位與副位位置
 function swapPlayerStack() {
   if (!playerStackedCard || !activePlayerCard) return;
   const tempCard = activePlayerCard;
@@ -1708,18 +1784,24 @@ function swapPlayerStack() {
   playerStackedHP = tempHP;
   playerStackedMaxHP = tempMaxHP;
 
+  // 切換行動狀態
+  const tempActed = playerDualActions.card1Done;
+  playerDualActions.card1Done = playerDualActions.card2Done;
+  playerDualActions.card2Done = tempActed;
+
   playerMoves = createStackedBattleMoves(activePlayerCard, playerStackedCard);
 
   updateBattleCardsVisual();
   renderMoves();
   triggerScreenShake();
-  updateTurnBadge(`🔄 疊牌主從切換！現在由【${activePlayerCard.name}】居於前排，【${playerStackedCard.name}】處於底層！`);
+  updateTurnBadge(`🔄 戰鬥牌位置交換！【${activePlayerCard.name}】居於前排，【${playerStackedCard.name}】居於副位！`);
 }
 
 // 檢查手牌是否集齊 Driver 團四位全員 (團長、林走狗、陳豆豆、姜敦硯)
 function checkDriverComboMembers(handCards) {
   const cards = Array.isArray(handCards) ? handCards : [];
-  const hasDriver = cards.some((c) => c && c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌") || c.name.includes("團長")));
+  const hasDriver = cards.some((c) => c && c.name && (c.name.includes("八塊腹肌") || c.name.includes("團長") || c.name.includes("Driver"))) ||
+    (activePlayerCard && activePlayerCard.name && (activePlayerCard.name.includes("Driver") || activePlayerCard.name.includes("八塊腹肌")));
   const hasLin = cards.some((c) => c && c.name && (c.name.includes("林走狗") || c.name.includes("林狗")));
   const hasChen = cards.some((c) => c && c.name && c.name.includes("陳豆豆"));
   const hasJiang = cards.some((c) => c && c.name && (c.name.includes("姜敦硯") || c.name.includes("姜敦驗") || c.name.includes("給佬")));
@@ -1782,14 +1864,14 @@ function flipActivePlayerCard() {
   triggerScreenShake();
 }
 
-// 更新場上疊牌與雙面卡視覺（雙卡標籤、雙卡血量與雙面卡翻面資訊）
+// 更新場上雙卡出戰與雙面卡視覺（獨立雙卡展示、雙面卡翻面資訊與行動狀態標籤）
 function updateBattleCardsVisual() {
   // 我方戰鬥牌面板
   const cardPanelEl = document.querySelector("#cardPanel");
   if (cardPanelEl && activePlayerCard) {
     let stackBadge = document.querySelector("#playerStackBadge");
     if (playerStackedCard) {
-      cardPanelEl.classList.add("stacked-card-active");
+      if (playerFieldSlot) playerFieldSlot.classList.add("dual-active");
       if (!stackBadge) {
         stackBadge = document.createElement("div");
         stackBadge.id = "playerStackBadge";
@@ -1799,9 +1881,9 @@ function updateBattleCardsVisual() {
         else cardPanelEl.prepend(stackBadge);
       }
       stackBadge.innerHTML = `
-        <span class="stack-badge-title">🥞 雙卡疊牌出戰中</span>
-        <span class="stack-badge-info">[底層: ${playerStackedCard.name} (HP ${playerStackedHP})]</span>
-        <button type="button" class="stack-swap-btn" id="swapPlayerStackBtn">🔄 切換主位</button>
+        <span class="stack-badge-title">🎴 雙卡出戰中（每局各發一招）</span>
+        <span class="stack-badge-info">[主位: ${activePlayerCard.name}] [副位: ${playerStackedCard.name}]</span>
+        <button type="button" class="stack-swap-btn" id="swapPlayerStackBtn">🔄 交換站位</button>
       `;
       const swapBtn = stackBadge.querySelector("#swapPlayerStackBtn");
       if (swapBtn) {
@@ -1810,8 +1892,31 @@ function updateBattleCardsVisual() {
           swapPlayerStack();
         };
       }
+
+      // 渲染我方第二張獨立戰鬥牌面板 (不要合體成一張牌)
+      if (playerSecondCardPanel) {
+        playerSecondCardPanel.hidden = false;
+        playerSecondCardPanel.removeAttribute("hidden");
+        playerSecondCardPanel.style.display = "";
+        if (cardSecondName) {
+          const action2Tag = playerDualActions.card2Done
+            ? '<span class="card-action-status-badge done">✅ 本局已出招</span>'
+            : '<span class="card-action-status-badge pending">⚡ 待出招</span>';
+          cardSecondName.innerHTML = `${playerStackedCard.name} ${action2Tag}`;
+        }
+        if (cardSecondHealth) cardSecondHealth.textContent = `${playerStackedHP} / ${playerStackedMaxHP}`;
+        if (cardSecondDikra) cardSecondDikra.textContent = playerStackedCard.dikra || "0";
+        if (cardSecondChakra) cardSecondChakra.textContent = playerStackedCard.chakra || "0";
+        if (playerSecondDefense) playerSecondDefense.textContent = "0";
+        if (cardSecondPassive) cardSecondPassive.textContent = playerStackedCard.passive || "";
+      }
     } else {
-      cardPanelEl.classList.remove("stacked-card-active");
+      if (playerFieldSlot) playerFieldSlot.classList.remove("dual-active");
+      if (playerSecondCardPanel) {
+        playerSecondCardPanel.hidden = true;
+        playerSecondCardPanel.setAttribute("hidden", "");
+        playerSecondCardPanel.style.display = "none";
+      }
       if (stackBadge) stackBadge.remove();
     }
 
@@ -1879,17 +1984,22 @@ function updateBattleCardsVisual() {
 
     const nameEl = document.querySelector("#cardName");
     if (nameEl) {
-      nameEl.textContent = playerStackedCard ? `${activePlayerCard.name} ⚡ ${playerStackedCard.name}` : activePlayerCard.name;
+      if (playerStackedCard) {
+        const action1Tag = playerDualActions.card1Done
+          ? '<span class="card-action-status-badge done">✅ 本局已出招</span>'
+          : '<span class="card-action-status-badge pending">⚡ 待出招</span>';
+        nameEl.innerHTML = `${activePlayerCard.name} ${action1Tag}`;
+      } else {
+        nameEl.textContent = activePlayerCard.name;
+      }
     }
     const hpEl = document.querySelector("#cardHealth");
     if (hpEl) {
-      hpEl.textContent = playerStackedCard ? `${playerHP} (+${playerStackedHP} 疊牌)` : playerHP;
+      hpEl.textContent = playerStackedCard ? `${playerHP} / ${playerMaxHP}` : playerHP;
     }
     const passiveEl = document.querySelector("#cardPassive");
     if (passiveEl) {
-      passiveEl.textContent = playerStackedCard
-        ? `【主位】${activePlayerCard.passive || ""} ｜【疊牌支援】${playerStackedCard.passive || ""}`
-        : (activePlayerCard.passive || "");
+      passiveEl.textContent = activePlayerCard.passive || "";
     }
   }
 
@@ -1898,7 +2008,7 @@ function updateBattleCardsVisual() {
   if (oppCardPanelEl && opponentActiveCard) {
     let oppStackBadge = document.querySelector("#oppStackBadge");
     if (opponentStackedCard) {
-      oppCardPanelEl.classList.add("stacked-card-active");
+      if (opponentFieldSlot) opponentFieldSlot.classList.add("dual-active");
       if (!oppStackBadge) {
         oppStackBadge = document.createElement("div");
         oppStackBadge.id = "oppStackBadge";
@@ -1908,11 +2018,29 @@ function updateBattleCardsVisual() {
         else oppCardPanelEl.prepend(oppStackBadge);
       }
       oppStackBadge.innerHTML = `
-        <span class="stack-badge-title">🥞 對手雙卡疊牌出戰</span>
-        <span class="stack-badge-info">[底層: ${opponentStackedCard.name} (HP ${opponentStackedHP})]</span>
+        <span class="stack-badge-title">🎴 對手雙卡出戰中（每局各發一招）</span>
+        <span class="stack-badge-info">[主位: ${opponentActiveCard.name}] [副位: ${opponentStackedCard.name}]</span>
       `;
+
+      // 渲染對手第二張獨立戰鬥牌面板
+      if (opponentSecondCardPanel) {
+        opponentSecondCardPanel.hidden = false;
+        opponentSecondCardPanel.removeAttribute("hidden");
+        opponentSecondCardPanel.style.display = "";
+        if (opponentSecondCardName) opponentSecondCardName.textContent = opponentStackedCard.name;
+        if (opponentSecondHealth) opponentSecondHealth.textContent = `${opponentStackedHP} / ${opponentStackedMaxHP}`;
+        if (opponentSecondDikra) opponentSecondDikra.textContent = opponentStackedCard.dikra || "0";
+        if (opponentSecondChakra) opponentSecondChakra.textContent = opponentStackedCard.chakra || "0";
+        if (opponentSecondDefense) opponentSecondDefense.textContent = "0";
+        if (opponentSecondPassive) opponentSecondPassive.textContent = opponentStackedCard.passive || "";
+      }
     } else {
-      oppCardPanelEl.classList.remove("stacked-card-active");
+      if (opponentFieldSlot) opponentFieldSlot.classList.remove("dual-active");
+      if (opponentSecondCardPanel) {
+        opponentSecondCardPanel.hidden = true;
+        opponentSecondCardPanel.setAttribute("hidden", "");
+        opponentSecondCardPanel.style.display = "none";
+      }
       if (oppStackBadge) oppStackBadge.remove();
     }
 
@@ -1922,17 +2050,15 @@ function updateBattleCardsVisual() {
 
     const oppNameEl = document.querySelector("#opponentCardName");
     if (oppNameEl) {
-      oppNameEl.textContent = opponentStackedCard ? `${opponentActiveCard.name} ⚡ ${opponentStackedCard.name}` : opponentActiveCard.name;
+      oppNameEl.textContent = opponentActiveCard.name;
     }
     const oppHpEl = document.querySelector("#opponentHealth");
     if (oppHpEl) {
-      oppHpEl.textContent = opponentStackedCard ? `${opponentHP} (+${opponentStackedHP} 疊牌)` : opponentHP;
+      oppHpEl.textContent = opponentStackedCard ? `${opponentHP} / ${opponentMaxHP}` : opponentHP;
     }
     const oppPassiveEl = document.querySelector("#opponentPassive");
     if (oppPassiveEl) {
-      oppPassiveEl.textContent = opponentStackedCard
-        ? `【主位】${opponentActiveCard.passive || ""} ｜【疊牌支援】${opponentStackedCard.passive || ""}`
-        : (opponentActiveCard.passive || "");
+      oppPassiveEl.textContent = opponentActiveCard.passive || "";
     }
   }
 }
@@ -2026,6 +2152,7 @@ function renderMoves() {
   }
 
   moveList.innerHTML = "";
+  if (secondMoveList) secondMoveList.innerHTML = "";
 
   // 若當前卡牌為 Driver團背面 (具有海報純文字裝飾)
   const isPosterCard = activePlayerCard && (activePlayerCard.hasPosterArt || (activePlayerCard.name && activePlayerCard.name.includes("Driver") && activePlayerCard.name.includes("背面")));
@@ -2045,8 +2172,21 @@ function renderMoves() {
     const isGeilaoLocked = isPlayerGeilao && !playerGeilaoApproached && !isM1;
     const isSurvivalLocked = !isM1 && move.unlockRemaining > 0;
 
+    let isActed = false;
+    let targetContainer = moveList;
+    if (playerStackedCard) {
+      if (move.cardIndex === 2) {
+        if (secondMoveList) targetContainer = secondMoveList;
+        isActed = playerDualActions.card2Done;
+      } else {
+        isActed = playerDualActions.card1Done;
+      }
+    }
+
     let lockTag = "";
-    if (isSurvivalLocked && isGeilaoLocked) {
+    if (isActed) {
+      lockTag = ` <span class="cd-tag">✅ 本局已出招</span>`;
+    } else if (isSurvivalLocked && isGeilaoLocked) {
       lockTag = ` <span class="lock-tag">🔒 需先出 M1（且在場存活剩餘 ${move.unlockRemaining} 局）</span>`;
     } else if (isSurvivalLocked) {
       lockTag = ` <span class="lock-tag">🔒 存活剩餘 ${move.unlockRemaining} 局解鎖</span>`;
@@ -2067,10 +2207,12 @@ function renderMoves() {
 
     const lockRemaining = isM1 ? 0 : Math.max(move.cooldownRemaining, move.unlockRemaining);
 
-    if (gameOver || playerHP <= 0 || currentTurn !== "player" || lockRemaining > 0 || isGeilaoLocked) {
+    if (gameOver || playerHP <= 0 || currentTurn !== "player" || lockRemaining > 0 || isGeilaoLocked || isActed) {
       button.classList.add("cooling");
       button.disabled = true;
-      if (isGeilaoLocked || isSurvivalLocked) {
+      if (isActed) {
+        button.style.setProperty("--cooldown-left", "100%");
+      } else if (isGeilaoLocked || isSurvivalLocked) {
         button.style.setProperty("--cooldown-left", "100%");
       } else if (move.cooldownRemaining > 0) {
         button.style.setProperty("--cooldown-left", `${getMoveLockPercent(move)}%`);
@@ -2081,11 +2223,16 @@ function renderMoves() {
       button.addEventListener("click", () => useMove(move));
     }
 
-    moveList.appendChild(button);
+    targetContainer.appendChild(button);
   });
 
   // 檢查是否所有招式都在冷卻或未解鎖中：若無招可出，自動進入防守蓄力並切換回合，避免介面卡死
   const hasAvailableMove = playerMoves.some((move) => {
+    let isActed = false;
+    if (playerStackedCard) {
+      isActed = move.cardIndex === 2 ? playerDualActions.card2Done : playerDualActions.card1Done;
+    }
+    if (isActed) return false;
     const isM1 = move.key === "M1" || move.key === "M1招" || (move.name && move.name.includes("靠近"));
     const isGeilaoLocked = isPlayerGeilao && !playerGeilaoApproached && !isM1;
     const lockRemaining = isM1 ? 0 : Math.max(move.cooldownRemaining, move.unlockRemaining);
@@ -2093,14 +2240,20 @@ function renderMoves() {
   });
 
   if (!hasAvailableMove && !gameOver && playerHP > 0 && currentTurn === "player") {
-    updateTurnBadge("⏳ 所有招式正在冷卻中！本回合進入蓄力防守狀態，準備交給對手回合...");
+    // 若雙卡中已有一張出招完，另一張沒招，直接切換到對手回合
+    if (playerStackedCard && (playerDualActions.card1Done || playerDualActions.card2Done)) {
+      updateTurnBadge("我方雙卡本局行動完畢，準備交給對手回合...");
+    } else {
+      updateTurnBadge("⏳ 所有招式正在冷卻中！本回合進入蓄力防守狀態，準備交給對手回合...");
+    }
     setTimeout(() => {
       if (!gameOver && currentTurn === "player") {
         if (starter === "opponent") decrementCooldowns();
         currentTurn = "opponent";
-        updateTurnBadge("我方招式冷卻蓄力中，換對手回合！");
+        updateTurnBadge("我方回合結束，換對手回合！");
         renderMoves();
         renderOpponentMoves();
+        updateBattleCardsVisual();
         setTimeout(opponentTurn, 1000);
       }
     }, 1200);
@@ -2116,6 +2269,7 @@ function renderOpponentMoves() {
   if (!opponentMoveList || !opponentActiveCard) return;
 
   opponentMoveList.innerHTML = "";
+  if (opponentSecondMoveList) opponentSecondMoveList.innerHTML = "";
 
   const isOppGeilao = opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"));
 
@@ -2155,7 +2309,12 @@ function renderOpponentMoves() {
       item.style.opacity = "0.7";
     }
 
-    opponentMoveList.appendChild(item);
+    let targetOppContainer = opponentMoveList;
+    if (opponentStackedCard && move.cardIndex === 2 && opponentSecondMoveList) {
+      targetOppContainer = opponentSecondMoveList;
+    }
+
+    targetOppContainer.appendChild(item);
   });
 
   if (opponentGlitchTurns > 0) {
@@ -2165,6 +2324,18 @@ function renderOpponentMoves() {
 
 function useMove(selectedMove) {
   if (gameOver || playerHP <= 0 || opponentHP <= 0 || currentTurn !== "player") return;
+
+  // 雙卡同場出招防護：若該卡牌本局已出過招，阻止重複發招
+  if (playerStackedCard) {
+    if (selectedMove.cardIndex === 2 && playerDualActions.card2Done) {
+      updateTurnBadge(`⚠️【${playerStackedCard.name}】本回合已出過招！請由另一張牌出招！`);
+      return;
+    }
+    if (selectedMove.cardIndex === 1 && playerDualActions.card1Done) {
+      updateTurnBadge(`⚠️【${activePlayerCard.name}】本回合已出過招！請由另一張牌出招！`);
+      return;
+    }
+  }
 
   const isM1Move = selectedMove.key === "M1" || selectedMove.key === "M1招" || (selectedMove.name && selectedMove.name.includes("靠近"));
 
@@ -2208,6 +2379,15 @@ function useMove(selectedMove) {
 }
 
 function executePlayerMove(selectedMove) {
+  // 記錄雙卡行動狀態
+  if (playerStackedCard) {
+    if (selectedMove.cardIndex === 2) {
+      playerDualActions.card2Done = true;
+    } else {
+      playerDualActions.card1Done = true;
+    }
+  }
+
   // 只有「雷切小弟弟」的領域展開才可以用選的（擇一發動做死、傳說對接、視獄偽境、真Dixx不斷、迪克崩壞、(Censored)）
   const isRaicheCard = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("雷切小弟弟");
   if (isRaicheCard && selectedMove.name && selectedMove.name.includes("領域展開")) {
@@ -2496,24 +2676,21 @@ function executePlayerMove(selectedMove) {
           const summonedDriver = JSON.parse(JSON.stringify(driverDef));
           summonedDriver.health = String(summonedDriver.health || "19999");
 
-          // 4. 疊牌！林走狗不退回備戰區，雙卡同時留在戰鬥牌區共鬥！
-          const baseLinCard = activePlayerCard;
-          baseLinCard.health = String(playerHP);
-          playerStackedCard = baseLinCard;
-          playerStackedHP = playerHP;
-          playerStackedMaxHP = playerMaxHP;
-
-          // 5. 將 Driver 團長空降疊牌至頂層（出戰位，血量 19999）
-          activePlayerCard = summonedDriver;
+          // 4. 雙卡同時留在戰鬥牌區，不要合體成一張牌！
+          // 林走狗保持為主位戰鬥牌 (Card 1)
+          // 召喚的團長作為並肩出戰的第二張戰鬥牌 (Card 2)
+          playerStackedCard = summonedDriver;
           const healthStr = String(summonedDriver.health || "19999").replace(/,/g, "");
-          playerMaxHP = parseInt(healthStr) || 19999;
-          playerHP = playerMaxHP;
-          playerStatus = { defense: 0, damageHalf: false, stunned: false };
-          playerCardDamageMult = 1;
-          playerGeilaoApproached = false;
+          playerStackedMaxHP = parseInt(healthStr) || 19999;
+          playerStackedHP = playerStackedMaxHP;
 
-          // 雙卡合體共鬥招式清單（同時提供團長所有技能與林走狗所有技能！）
+          // 生成雙卡出戰招式清單（同時提供林走狗與團長的所有技能）
           playerMoves = createStackedBattleMoves(activePlayerCard, playerStackedCard);
+
+          // 林走狗剛施展「召喚團長」，林走狗本回合已出招
+          playerDualActions.card1Done = true;
+          // 團長剛登場，待出招！
+          playerDualActions.card2Done = false;
 
           updateBattleCardsVisual();
           renderHand();
@@ -2521,7 +2698,7 @@ function executePlayerMove(selectedMove) {
           renderMoves();
           updateDeckCounts();
           triggerScreenShake();
-          updateTurnBadge("🐕💪🥞【林走狗】大聲吠叫召喚！八塊腹肌Driver團團長（血量 19999）直接空降疊牌！雙卡同時在戰鬥牌區共鬥！造成 500 傷害！");
+          updateTurnBadge("🐕💪【林走狗】大聲吠叫召喚！八塊腹肌Driver團團長（血量 19999）登場並列出戰！兩張牌皆在場上！輪到【Driver團長】出招！（雙卡每局各發一招）");
         }
       }
     }
@@ -2614,10 +2791,30 @@ function executePlayerMove(selectedMove) {
     return;
   }
 
+  // 雙卡同場出招機制：檢查是否兩張牌都已各自出招
+  if (playerStackedCard) {
+    const hasCard1Available = playerMoves.filter((m) => m.cardIndex === 1).some((m) => !m.cooldownRemaining && !m.unlockRemaining);
+    const hasCard2Available = playerMoves.filter((m) => m.cardIndex === 2).some((m) => !m.cooldownRemaining && !m.unlockRemaining);
+
+    const card1Finished = playerDualActions.card1Done || !hasCard1Available;
+    const card2Finished = playerDualActions.card2Done || !hasCard2Available;
+
+    if (!card1Finished || !card2Finished) {
+      const waitingName = !card1Finished ? activePlayerCard.name : playerStackedCard.name;
+      const doneName = card1Finished ? activePlayerCard.name : playerStackedCard.name;
+      updateTurnBadge(`⚡【${doneName}】已出招！輪到【${waitingName}】出招！（雙卡每局各發一招）`);
+      renderMoves();
+      renderOpponentMoves();
+      updateBattleCardsVisual();
+      return;
+    }
+  }
+
   currentTurn = "opponent";
-  updateTurnBadge("對手回合思考中...");
+  updateTurnBadge("我方回合出招完畢，對手回合思考中...");
   renderMoves();
   renderOpponentMoves();
+  updateBattleCardsVisual();
 
   setTimeout(opponentTurn, 1000);
 }
@@ -2957,22 +3154,13 @@ function executeOpponentMove(move) {
             const summonedDriver = JSON.parse(JSON.stringify(driverDef));
             summonedDriver.health = String(summonedDriver.health || "19999");
 
-            // 4. 疊牌！對手林走狗不退回備戰區，雙卡同時留在敵方戰鬥牌區共鬥！
-            const baseOppLin = opponentActiveCard;
-            baseOppLin.health = String(opponentHP);
-            opponentStackedCard = baseOppLin;
-            opponentStackedHP = opponentHP;
-            opponentStackedMaxHP = opponentMaxHP;
-
-            opponentActiveCard = summonedDriver;
+            // 4. 雙卡同時留在戰鬥牌區，不要合體成一張牌！
+            opponentStackedCard = summonedDriver;
             const oppHealthStr = String(summonedDriver.health || "19999").replace(/,/g, "");
-            opponentMaxHP = parseInt(oppHealthStr) || 19999;
-            opponentHP = opponentMaxHP;
-            opponentStatus = { defense: 0, damageHalf: false, stunned: false };
-            opponentCardDamageMult = 1;
-            opponentGeilaoApproached = false;
+            opponentStackedMaxHP = parseInt(oppHealthStr) || 19999;
+            opponentStackedHP = opponentStackedMaxHP;
 
-            // 生成對手雙卡疊牌招式清單
+            // 生成對手雙卡出戰招式清單
             opponentMoves = createStackedBattleMoves(opponentActiveCard, opponentStackedCard);
 
             updateBattleCardsVisual();
@@ -2982,7 +3170,7 @@ function executeOpponentMove(move) {
             updateDeckCounts();
             updateFieldStatusTags();
             triggerScreenShake();
-            updateTurnBadge("🐕💪🥞 對手【林走狗】大聲吠叫召喚！八塊腹肌Driver團團長（血量 19999）直接空降疊牌！雙卡同時在戰鬥牌區共鬥！造成 500 傷害！");
+            updateTurnBadge("🐕💪 對手【林走狗】大聲吠叫召喚！八塊腹肌Driver團團長（血量 19999）登場並列出戰！兩張牌皆在場上！造成 500 傷害！");
           }
         }
       }
@@ -3103,9 +3291,16 @@ function executeOpponentMove(move) {
   }
 
   currentTurn = "player";
-  updateTurnBadge("我方回合：請選擇技能出招");
+  playerDualActions.card1Done = false;
+  playerDualActions.card2Done = false;
+  if (playerStackedCard) {
+    updateTurnBadge(`我方回合：【${activePlayerCard.name}】與【${playerStackedCard.name}】準備出招（兩張牌每局各發一招）`);
+  } else {
+    updateTurnBadge("我方回合：請選擇技能出招");
+  }
   renderMoves();
   renderOpponentMoves();
+  updateBattleCardsVisual();
 }
 
 function handlePlayerCardDefeated() {
@@ -3554,6 +3749,25 @@ if (newCardBtn) {
     renderCardSelectOptions();
     selectCardForEditing(currentEditingIndex);
     showEditorStatus("已建立新卡牌，請開始編輯！");
+  });
+}
+
+if (deleteCardBtn) {
+  deleteCardBtn.addEventListener("click", () => {
+    if (cards.length <= 1) {
+      alert("牌庫至少需保留一張卡牌，無法刪除！");
+      return;
+    }
+    const targetCard = cards[currentEditingIndex];
+    const targetName = targetCard ? targetCard.name : "此卡牌";
+    if (confirm(`確定要刪除卡牌【${targetName}】嗎？此動作無法復原。`)) {
+      cards.splice(currentEditingIndex, 1);
+      saveCustomCards();
+      currentEditingIndex = Math.max(0, currentEditingIndex - 1);
+      renderCardSelectOptions();
+      selectCardForEditing(currentEditingIndex);
+      showEditorStatus(`已成功刪除卡牌【${targetName}】！`);
+    }
   });
 }
 

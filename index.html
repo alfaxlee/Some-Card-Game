@@ -85,6 +85,32 @@
                 <div class="move-list" id="opponentMoveList"></div>
                 <p class="passive-text" id="opponentPassive">passive：噁心能量條集滿可以直接把對方拿掉。</p>
               </article>
+              <!-- 對手第二張戰鬥牌 (雙卡同場出戰) -->
+              <article class="battle-card mini-battle-card second-battle-card" id="opponentSecondCardPanel" aria-label="對手第二張卡牌資料" hidden>
+                <div class="card-title-row">
+                  <h2 id="opponentSecondCardName">八塊腹肌Driver團團長</h2>
+                </div>
+                <dl class="card-stats">
+                  <div>
+                    <dt>迪克拉</dt>
+                    <dd id="opponentSecondDikra">999999999999</dd>
+                  </div>
+                  <div>
+                    <dt>查克拉</dt>
+                    <dd id="opponentSecondChakra">無限</dd>
+                  </div>
+                  <div>
+                    <dt>防禦</dt>
+                    <dd id="opponentSecondDefense">0</dd>
+                  </div>
+                  <div>
+                    <dt>血量</dt>
+                    <dd id="opponentSecondHealth">19999</dd>
+                  </div>
+                </dl>
+                <div class="move-list" id="opponentSecondMoveList"></div>
+                <p class="passive-text" id="opponentSecondPassive">passive：八塊腹肌具有堅不可摧的防禦。</p>
+              </article>
             </div>
           </section>
 
@@ -127,6 +153,32 @@
                 <div class="move-list" id="moveList"></div>
                 <p class="passive-text" id="cardPassive">passive：噁心能量條集滿可以直接把對方拿掉。</p>
               </article>
+              <!-- 我方第二張戰鬥牌 (雙卡同場出戰) -->
+              <article class="battle-card mini-battle-card second-battle-card" id="playerSecondCardPanel" aria-label="我方第二張卡牌資料" hidden>
+                <div class="card-title-row">
+                  <h2 id="cardSecondName">八塊腹肌Driver團團長</h2>
+                </div>
+                <dl class="card-stats">
+                  <div>
+                    <dt>迪克拉</dt>
+                    <dd id="cardSecondDikra">999999999999</dd>
+                  </div>
+                  <div>
+                    <dt>查克拉</dt>
+                    <dd id="cardSecondChakra">無限</dd>
+                  </div>
+                  <div>
+                    <dt>防禦</dt>
+                    <dd id="playerSecondDefense">0</dd>
+                  </div>
+                  <div>
+                    <dt>血量</dt>
+                    <dd id="cardSecondHealth">19999</dd>
+                  </div>
+                </dl>
+                <div class="move-list" id="secondMoveList"></div>
+                <p class="passive-text" id="cardSecondPassive">passive：八塊腹肌具有堅不可摧的防禦。</p>
+              </article>
             </div>
           </section>
         </div>
@@ -134,7 +186,10 @@
         <section class="battle-zone player-hand-zone" aria-label="我的手牌">
           <div class="hand-header">
             <h2>我方手牌 <span class="deck-count" id="playerDeckCount"></span></h2>
-            <button class="start-button draw-button" type="button" id="drawButton">抽牌</button>
+            <div class="hand-actions">
+              <button class="start-button draw-button" type="button" id="drawButton">抽牌</button>
+              <button class="start-button redraw-button" type="button" id="redrawButton" hidden>🔄 重抽</button>
+            </div>
           </div>
           <div class="hand-row" id="playerHand">
             <div class="empty-slot" id="emptyHandSlot">手牌是空的</div>
@@ -188,6 +243,7 @@
           <label for="cardSelectDropdown">選擇卡牌編輯：</label>
           <select id="cardSelectDropdown" class="editor-select"></select>
           <button class="action-btn" type="button" id="newCardBtn">+ 建立新卡牌</button>
+          <button class="action-btn delete-card-btn" type="button" id="deleteCardBtn">🗑️ 刪除此卡牌</button>
           <button class="action-btn danger-btn" type="button" id="resetCardsBtn">重設回預設</button>
         </div>
 
