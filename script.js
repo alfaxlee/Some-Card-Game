@@ -439,6 +439,47 @@ const defaultCards = [
       },
     ],
   },
+  {
+    name: "嘟嘟團合體",
+    dikra: "1+0",
+    chakra: "無限",
+    health: "無限",
+    hasEnergyMeter: false,
+    passive: "嘟嘟團的威力：對上Driver團合體進入剪刀石頭布對決，傷害無限！",
+    members: ["李知遠", "陳子均", "盧柏睿", "江語朔"],
+    hasDuduLayout: true,
+    moves: [
+      {
+        key: "嘟吧嘟",
+        name: "嘟吧嘟",
+        damage: "1+0 (無限)",
+        energy: 10,
+        cooldown: 0,
+        unlockAfterTurns: 0,
+        specialMechanic: "這個卡牌只有大框框那邊可以按，傷害無限，對上Driver團合體則進入剪刀石頭布",
+      },
+    ],
+    backCard: {
+      name: "嘟嘟團合體 (背面)",
+      dikra: "1+0%嘟閃",
+      chakra: "究極嘟之力",
+      health: "無限",
+      hasEnergyMeter: false,
+      passive: "究極嘟之力：領域展開，嘟嘟火車，即刻嘟死，1+0%嘟閃",
+      hasDuduBackLayout: true,
+      moves: [
+        {
+          key: "領域展開",
+          name: "嘟嘟火車",
+          damage: "即刻嘟死",
+          energy: 10,
+          cooldown: 0,
+          unlockAfterTurns: 0,
+          specialMechanic: "究極嘟之力，領域展開，即刻嘟死，1+0%嘟閃",
+        },
+      ],
+    },
+  },
 ];
 
 // 規範化卡牌屬性與特殊機制解析（尊重使用者自訂內容，不隨意覆蓋）
@@ -488,6 +529,14 @@ function normalizeCard(card) {
     }
     if (!card.passive) {
       card.passive = "血量跟狗一樣：身板脆弱如狗，但對姜敦硯具備絕對特攻，並能隨時召喚強大的Driver團長前來救援！";
+    }
+  }
+
+  // 嘟嘟團合體 機制規範化
+  if (card.name && card.name.includes("嘟嘟團合體")) {
+    card.hasDuduLayout = true;
+    if (!card.members) {
+      card.members = ["李知遠", "陳子均", "盧柏睿", "江語朔"];
     }
   }
 
@@ -610,6 +659,17 @@ function loadCustomCards() {
           if (m1) {
             m1.cooldown = 5;
           }
+        }
+
+        // 確保 嘟嘟團合體 存在並具備背面與正確結構
+        const duduDef = defaultCards.find((c) => c && c.name && c.name.includes("嘟嘟團合體"));
+        let duduSaved = parsed.find((c) => c && c.name && c.name.includes("嘟嘟團合體"));
+        if (!duduSaved && duduDef) {
+          parsed.push(JSON.parse(JSON.stringify(duduDef)));
+        } else if (duduSaved && duduDef) {
+          duduSaved.hasDuduLayout = true;
+          duduSaved.members = ["李知遠", "陳子均", "盧柏睿", "江語朔"];
+          duduSaved.backCard = JSON.parse(JSON.stringify(duduDef.backCard));
         }
 
         localStorage.setItem("customCardLibrary", JSON.stringify(parsed));
@@ -1426,6 +1486,253 @@ function playMegaGreenExplosion(targetEl, onFinish) {
   animId = requestAnimationFrame(render);
 }
 
+// 嘟嘟火車：金光閃閃、#00ff00 與 #00ffff 超時空特快列車飛馳衝擊動畫
+function playDuduTrainFlyingAnimation(isOpponent, onFinish) {
+  const overlay = document.querySelector("#duduTrainOverlay");
+  const canvas = document.querySelector("#duduTrainCanvas");
+  const actor = document.querySelector("#duduTrainActor");
+  const impactFlash = document.querySelector("#duduTrainImpactFlash");
+  const lockdownOverlay = document.querySelector("#inputLockdownOverlay");
+
+  if (lockdownOverlay) {
+    lockdownOverlay.hidden = false;
+    lockdownOverlay.removeAttribute("hidden");
+  }
+  document.querySelectorAll("button").forEach((btn) => (btn.disabled = true));
+
+  if (!overlay || !canvas || !actor) {
+    if (lockdownOverlay) {
+      lockdownOverlay.hidden = true;
+      lockdownOverlay.setAttribute("hidden", "");
+    }
+    if (onFinish) onFinish();
+    return;
+  }
+
+  overlay.hidden = false;
+  overlay.removeAttribute("hidden");
+  overlay.style.display = "block";
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext("2d");
+
+  // 計算我方與對方戰鬥牌中心坐標
+  const playerCardPanel = document.querySelector("#cardPanel") || document.querySelector("#playerCardPanel");
+  const opponentCardPanel = document.querySelector("#opponentCardPanel");
+
+  let playerPos = { x: window.innerWidth * 0.35, y: window.innerHeight * 0.72 };
+  let oppPos = { x: window.innerWidth * 0.5, y: window.innerHeight * 0.28 };
+
+  if (playerCardPanel) {
+    const r = playerCardPanel.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) {
+      playerPos = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+  }
+  if (opponentCardPanel) {
+    const r = opponentCardPanel.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) {
+      oppPos = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+  }
+
+  const startPos = isOpponent ? oppPos : playerPos;
+  const targetPos = isOpponent ? playerPos : oppPos;
+  const targetEl = isOpponent ? playerCardPanel : opponentCardPanel;
+
+  const dx = targetPos.x - startPos.x;
+  const dy = targetPos.y - startPos.y;
+  const angleRad = Math.atan2(dy, dx);
+  const angleDeg = (angleRad * 180) / Math.PI;
+
+  const duration = 1650; // 1.65 秒超華麗飛馳
+  const startTime = performance.now();
+  let animId = null;
+
+  const particles = [];
+  const rings = [];
+
+  const spawnTrailParticles = (x, y) => {
+    const colors = ["#ffd700", "#ffffff", "#00ff66", "#00ffff", "#ffea00", "#00e5ff"];
+    for (let i = 0; i < 5; i++) {
+      const pColor = colors[Math.floor(Math.random() * colors.length)];
+      const trailAngle = angleRad + Math.PI + (Math.random() - 0.5) * 0.7;
+      const speed = Math.random() * 5 + 2.5;
+      particles.push({
+        x: x + (Math.random() - 0.5) * 20,
+        y: y + (Math.random() - 0.5) * 20,
+        vx: Math.cos(trailAngle) * speed + (Math.random() - 0.5),
+        vy: Math.sin(trailAngle) * speed + (Math.random() - 0.5),
+        radius: Math.random() * 5 + 2.5,
+        color: pColor,
+        alpha: 1,
+        decay: Math.random() * 0.02 + 0.015,
+        isStar: Math.random() < 0.4,
+      });
+    }
+
+    if (Math.random() < 0.3) {
+      rings.push({
+        x,
+        y,
+        radius: 10,
+        color: Math.random() < 0.5 ? "#00ffff" : "#00ff66",
+        alpha: 0.95,
+      });
+    }
+  };
+
+  const render = (now) => {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / duration);
+
+    // 平滑加速衝刺曲線 (Ease In Quad -> Expo)
+    const easeProgress = progress < 0.3
+      ? (progress / 0.3) * (progress / 0.3) * 0.2
+      : 0.2 + ((progress - 0.3) / 0.7) * 0.8;
+
+    const currentX = startPos.x + dx * easeProgress;
+    const currentY = startPos.y + dy * easeProgress;
+
+    const trainScale = 1.35 + easeProgress * 0.45;
+    actor.style.display = "flex";
+    actor.style.left = `${currentX}px`;
+    actor.style.top = `${currentY}px`;
+    actor.style.transform = `translate(-50%, -50%) rotate(${angleDeg}deg) scale(${trainScale})`;
+
+    spawnTrailParticles(currentX, currentY);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    rings.forEach((r, idx) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = Math.max(0, r.alpha);
+      ctx.shadowColor = r.color;
+      ctx.shadowBlur = 15;
+      ctx.stroke();
+      ctx.restore();
+
+      r.radius += 2.2;
+      r.alpha -= 0.04;
+      if (r.alpha <= 0) rings.splice(idx, 1);
+    });
+
+    particles.forEach((p, idx) => {
+      ctx.save();
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 12;
+      ctx.globalAlpha = Math.max(0, p.alpha);
+
+      if (p.isStar) {
+        ctx.font = `${Math.floor(p.radius * 3.5)}px sans-serif`;
+        ctx.fillText("✨", p.x, p.y);
+      } else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius * p.alpha, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= p.decay;
+      if (p.alpha <= 0) particles.splice(idx, 1);
+    });
+
+    if (progress < 1) {
+      animId = requestAnimationFrame(render);
+    } else {
+      if (animId) cancelAnimationFrame(animId);
+
+      actor.style.display = "none";
+
+      if (impactFlash) {
+        impactFlash.style.opacity = "1";
+        setTimeout(() => {
+          if (impactFlash) impactFlash.style.opacity = "0";
+        }, 180);
+      }
+
+      triggerScreenShake();
+
+      if (targetEl) {
+        targetEl.classList.add("card-slammed-by-train");
+        setTimeout(() => {
+          targetEl.classList.remove("card-slammed-by-train");
+        }, 900);
+      }
+
+      const burstColors = ["#ffd700", "#00ff00", "#00ffff", "#ffffff", "#ffea00", "#39ff14"];
+      for (let i = 0; i < 180; i++) {
+        const bColor = burstColors[Math.floor(Math.random() * burstColors.length)];
+        const bSpeed = Math.random() * 12 + 3;
+        const bAngle = Math.random() * Math.PI * 2;
+        particles.push({
+          x: targetPos.x,
+          y: targetPos.y,
+          vx: Math.cos(bAngle) * bSpeed,
+          vy: Math.sin(bAngle) * bSpeed,
+          radius: Math.random() * 6 + 2,
+          color: bColor,
+          alpha: 1,
+          decay: Math.random() * 0.02 + 0.015,
+          isStar: Math.random() < 0.4,
+        });
+      }
+
+      const postStart = performance.now();
+      const renderPostExplosion = (postNow) => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach((p, idx) => {
+          ctx.save();
+          ctx.fillStyle = p.color;
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 14;
+          ctx.globalAlpha = Math.max(0, p.alpha);
+          if (p.isStar) {
+            ctx.font = `${Math.floor(p.radius * 3.5)}px sans-serif`;
+            ctx.fillText("✨", p.x, p.y);
+          } else {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius * p.alpha, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vx *= 0.96;
+          p.vy *= 0.96;
+          p.alpha -= p.decay;
+          if (p.alpha <= 0) particles.splice(idx, 1);
+        });
+
+        if (postNow - postStart < 450) {
+          requestAnimationFrame(renderPostExplosion);
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          overlay.hidden = true;
+          overlay.setAttribute("hidden", "");
+          if (lockdownOverlay) {
+            lockdownOverlay.hidden = true;
+            lockdownOverlay.setAttribute("hidden", "");
+          }
+          if (onFinish) onFinish();
+        }
+      };
+
+      requestAnimationFrame(renderPostExplosion);
+    }
+  };
+
+  animId = requestAnimationFrame(render);
+}
+
 // 將對手（電腦）的招式順序隨機洗牌打亂
 function scrambleOpponentMoves() {
   opponentMovesScrambled = true;
@@ -1633,7 +1940,7 @@ function playCard(index) {
 
   activePlayerCard = card;
   const healthStr = String(card.health || "10000").replace(/,/g, "");
-  playerMaxHP = parseInt(healthStr) || 10000;
+  playerMaxHP = healthStr.includes("無限") ? 999999999 : (parseInt(healthStr) || 10000);
   playerHP = playerMaxHP;
   playerStatus = { defense: 0, damageHalf: false, stunned: false };
   playerCardDamageMult = 1;
@@ -1711,7 +2018,7 @@ function playOpponentNextCard() {
 
   opponentActiveCard = opponentHandCards.shift();
   const oppHealthStr = String(opponentActiveCard.health || "10000").replace(/,/g, "");
-  opponentMaxHP = parseInt(oppHealthStr) || 10000;
+  opponentMaxHP = oppHealthStr.includes("無限") ? 999999999 : (parseInt(oppHealthStr) || 10000);
   opponentHP = opponentMaxHP;
   opponentStatus = { defense: 0, damageHalf: false, stunned: false };
   opponentCardDamageMult = 1;
@@ -1887,20 +2194,87 @@ function swapPlayerStack() {
   updateTurnBadge(`🔄 戰鬥牌位置交換！【${activePlayerCard.name}】居於前排，【${playerStackedCard.name}】居於副位！`);
 }
 
-// 檢查手牌是否集齊 Driver 團四位全員 (團長、林走狗、陳豆豆、姜敦硯)
+// 檢查是否集齊 Driver 團四位全員 (八塊腹肌Driver團團長、陳豆豆、林走狗、給佬+姜敦硯)
 function checkDriverComboMembers(handCards) {
-  const cards = Array.isArray(handCards) ? handCards : [];
-  const hasDriver = cards.some((c) => c && c.name && (c.name.includes("八塊腹肌") || c.name.includes("團長") || c.name.includes("Driver"))) ||
-    (activePlayerCard && activePlayerCard.name && (activePlayerCard.name.includes("Driver") || activePlayerCard.name.includes("八塊腹肌")));
-  const hasLin = cards.some((c) => c && c.name && (c.name.includes("林走狗") || c.name.includes("林狗")));
+  const cards = [
+    ...(Array.isArray(handCards) ? handCards : []),
+    playerStackedCard,
+  ].filter(Boolean);
+
+  // 1. 八塊腹肌Driver團團長（嚴格排除 Driver團合體 本身，必須持有團長本人！）
+  const hasDriver = cards.some(
+    (c) =>
+      c &&
+      c.name &&
+      (c.name.includes("八塊腹肌") || c.name.includes("團長")) &&
+      !c.name.includes("合體")
+  );
+
+  // 2. 陳豆豆
   const hasChen = cards.some((c) => c && c.name && c.name.includes("陳豆豆"));
+
+  // 3. 林走狗
+  const hasLin = cards.some((c) => c && c.name && (c.name.includes("林走狗") || c.name.includes("林狗")));
+
+  // 4. 給佬+姜敦硯
   const hasJiang = cards.some((c) => c && c.name && (c.name.includes("姜敦硯") || c.name.includes("姜敦驗") || c.name.includes("給佬")));
 
   const missing = [];
-  if (!hasDriver) missing.push("Driver團長");
-  if (!hasLin) missing.push("林走狗");
+  if (!hasDriver) missing.push("八塊腹肌Driver團團長");
   if (!hasChen) missing.push("陳豆豆");
-  if (!hasJiang) missing.push("姜敦硯");
+  if (!hasLin) missing.push("林走狗");
+  if (!hasJiang) missing.push("給佬+姜敦硯");
+
+  return {
+    canFlip: missing.length === 0,
+    missing,
+  };
+}
+
+// 檢查是否集齊嘟嘟團四位成員 (雷切小弟弟、子均大爺、盧三角、棒球小王子)
+function checkDuduComboMembers(handCards) {
+  const cards = [
+    ...(Array.isArray(handCards) ? handCards : []),
+    playerStackedCard,
+  ].filter(Boolean);
+
+  // 1. 雷切小弟弟
+  const hasRaiche = cards.some(
+    (c) => c && c.name && c.name.includes("雷切小弟弟") && !c.name.includes("嘟嘟")
+  );
+
+  // 2. 子均大爺
+  const hasZijun = cards.some(
+    (c) =>
+      c &&
+      c.name &&
+      (c.name.includes("子均大爺") || c.name.includes("陳子均") || c.name.includes("子均")) &&
+      !c.name.includes("嘟嘟")
+  );
+
+  // 3. 盧三角
+  const hasLu = cards.some(
+    (c) =>
+      c &&
+      c.name &&
+      (c.name.includes("盧三角") || c.name.includes("盧柏睿") || c.name.includes("三角")) &&
+      !c.name.includes("嘟嘟")
+  );
+
+  // 4. 棒球小王子
+  const hasBaseball = cards.some(
+    (c) =>
+      c &&
+      c.name &&
+      (c.name.includes("棒球小王子") || c.name.includes("棒球")) &&
+      !c.name.includes("嘟嘟")
+  );
+
+  const missing = [];
+  if (!hasRaiche) missing.push("雷切小弟弟");
+  if (!hasZijun) missing.push("子均大爺");
+  if (!hasLu) missing.push("盧三角");
+  if (!hasBaseball) missing.push("棒球小王子");
 
   return {
     canFlip: missing.length === 0,
@@ -1913,6 +2287,7 @@ function flipActivePlayerCard() {
   if (!activePlayerCard || !activePlayerCard.backCard) return;
 
   const isDriverCard = activePlayerCard.name && activePlayerCard.name.includes("Driver");
+  const isDuduCard = activePlayerCard.name && activePlayerCard.name.includes("嘟嘟團合體");
   const isCurrentlyFront = !activePlayerCard.name.includes("背面");
 
   // 若為 Driver 團合體 且準備從正面翻面至背面，必須集齊手牌所有 4 位團員！
@@ -1920,7 +2295,17 @@ function flipActivePlayerCard() {
     const check = checkDriverComboMembers(playerHandCards);
     if (!check.canFlip) {
       triggerScreenShake();
-      updateTurnBadge(`🔒【無法翻面】手牌必須集結所有團員（Driver團長、林走狗、陳豆豆、姜敦硯）才能翻面！目前手牌缺少：${check.missing.join("、")}！`);
+      updateTurnBadge(`🔒【無法翻面】合體牌翻面必須集齊所有團員（八塊腹肌Driver團團長、陳豆豆、林走狗、給佬+姜敦硯）！目前缺少：${check.missing.join("、")}！`);
+      return;
+    }
+  }
+
+  // 若為 嘟嘟團合體 且準備從正面翻面至背面，必須集滿「雷切小弟弟、子均大爺、盧三角、棒球小王子」！
+  if (isDuduCard && isCurrentlyFront) {
+    const check = checkDuduComboMembers(playerHandCards);
+    if (!check.canFlip) {
+      triggerScreenShake();
+      updateTurnBadge(`🔒【無法翻面】嘟嘟團翻面必須集滿「雷切小弟弟、子均大爺、盧三角、棒球小王子」！目前缺少：${check.missing.join("、")}！`);
       return;
     }
   }
@@ -1932,19 +2317,24 @@ function flipActivePlayerCard() {
   newFront.backCard = oldCard; // 形成循環關聯，可再次翻回
   activePlayerCard = newFront;
 
-  // 若成功翻轉為背面形態，進入完全無敵狀態！
+  // 若成功翻轉為背面形態
   if (isDriverCard && isCurrentlyFront) {
     activePlayerCard.isFullyInvincible = true;
     updateTurnBadge("👑🌟【最強團體 OP 奧義】Driver團所有團員全部集齊！成功翻面進化！進入【完全無敵狀態】！");
   } else if (isDriverCard && !isCurrentlyFront) {
     activePlayerCard.isFullyInvincible = false;
     updateTurnBadge("🔄 翻轉回正面基礎形態，解除完全無敵狀態。");
+  } else if (isDuduCard && isCurrentlyFront) {
+    updateTurnBadge("🚂🌟【究極嘟之力覺醒】集滿「雷切小弟弟、子均大爺、盧三角、棒球小王子」！嘟嘟團成功翻面！領域展開，嘟嘟火車！");
+  } else if (isDuduCard && !isCurrentlyFront) {
+    updateTurnBadge("🔄 嘟嘟團翻回正面基礎形態。");
   } else {
     updateTurnBadge(`🔄 雙面卡翻轉！【${oldCard.name}】翻轉為【${activePlayerCard.name}】形態！`);
   }
 
   // 更新屬性與招式
-  const newHpVal = parseInt(activePlayerCard.health) || 10000;
+  const hpStr = String(activePlayerCard.health || "10000");
+  const newHpVal = hpStr.includes("無限") ? 999999999 : (parseInt(hpStr) || 10000);
   playerHP = newHpVal;
   playerMaxHP = newHpVal;
   playerMoves = createBattleMoves(activePlayerCard);
@@ -2025,17 +2415,35 @@ function updateBattleCardsVisual() {
       }
 
       const isDriverCard = activePlayerCard.name && activePlayerCard.name.includes("Driver");
+      const isDuduCard = activePlayerCard.name && activePlayerCard.name.includes("嘟嘟團合體");
       const isCurrentlyFront = !activePlayerCard.name.includes("背面");
       let flipBtnText = "🔄 翻轉卡牌";
       let btnClass = "stack-swap-btn";
+      let btnTitle = "";
 
       if (isDriverCard && isCurrentlyFront) {
         const check = checkDriverComboMembers(playerHandCards);
         if (check.canFlip) {
           flipBtnText = "🌟 全員已齊！翻面無敵！";
           btnClass += " flip-ready-btn";
+          btnTitle = "所有團員（八塊腹肌團長、陳豆豆、林走狗、給佬姜敦硯）已全部集齊！可翻面進化進入完全無敵！";
         } else {
-          flipBtnText = `🔒 翻面合體 (缺團員: ${check.missing.length}人)`;
+          flipBtnText = check.missing.length > 2
+            ? `🔒 翻面合體 (缺: ${check.missing.length}人)`
+            : `🔒 翻面合體 (缺: ${check.missing.join("、")})`;
+          btnTitle = `缺少團員：${check.missing.join("、")}`;
+        }
+      } else if (isDuduCard && isCurrentlyFront) {
+        const check = checkDuduComboMembers(playerHandCards);
+        if (check.canFlip) {
+          flipBtnText = "🌟 全員已齊！翻面火車！";
+          btnClass += " flip-ready-btn";
+          btnTitle = "所有成員（雷切小弟弟、子均大爺、盧三角、棒球小王子）已全部集齊！可翻面發動究極嘟之力！";
+        } else {
+          flipBtnText = check.missing.length > 2
+            ? `🔒 翻面嘟嘟 (缺: ${check.missing.length}人)`
+            : `🔒 翻面 (缺: ${check.missing.join("、")})`;
+          btnTitle = `缺少成員：${check.missing.join("、")}`;
         }
       }
 
@@ -2044,7 +2452,7 @@ function updateBattleCardsVisual() {
       flipBadge.innerHTML = `
         <span class="stack-badge-title" style="color: #d7bde2;">🎴 雙面卡 ${invincibleTag}</span>
         <span class="stack-badge-info">[背面: ${activePlayerCard.backCard.name}]</span>
-        <button type="button" class="${btnClass}" id="flipActiveCardBtn" style="background: rgba(155, 89, 182, 0.45); border-color: #bb8fce;">${flipBtnText}</button>
+        <button type="button" class="${btnClass}" id="flipActiveCardBtn" style="background: rgba(155, 89, 182, 0.45); border-color: #bb8fce;" title="${btnTitle}">${flipBtnText}</button>
       `;
       const flipBtn = flipBadge.querySelector("#flipActiveCardBtn");
       if (flipBtn) {
@@ -2071,6 +2479,14 @@ function updateBattleCardsVisual() {
     } else {
       cardPanelEl.classList.remove("is-poster-mode");
     }
+
+    // 若為嘟嘟團合體（正面），切換 is-dudu-mode 徹底拿掉上方框框
+    const isDuduActive = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("嘟嘟團合體") && !activePlayerCard.name.includes("背面");
+    cardPanelEl.classList.toggle("is-dudu-mode", Boolean(isDuduActive));
+
+    // 若為嘟嘟團合體（背面），切換 is-dudu-back-mode 徹底拿掉上方框框（全PPT複製）
+    const isDuduBackActive = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("嘟嘟團合體") && activePlayerCard.name.includes("背面");
+    cardPanelEl.classList.toggle("is-dudu-back-mode", Boolean(isDuduBackActive));
 
     const nameEl = document.querySelector("#cardName");
     if (nameEl) {
@@ -2137,6 +2553,14 @@ function updateBattleCardsVisual() {
     // 若對手為海報模式（Driver團背面），切換 is-poster-mode 徹底拿掉上方框框
     const isOppPoster = opponentActiveCard && (opponentActiveCard.hasPosterArt || (opponentActiveCard.name && opponentActiveCard.name.includes("Driver") && opponentActiveCard.name.includes("背面")));
     oppCardPanelEl.classList.toggle("is-poster-mode", Boolean(isOppPoster));
+
+    // 若對手為嘟嘟團合體（正面），切換 is-dudu-mode 徹底拿掉上方框框
+    const isOppDudu = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("嘟嘟團合體") && !opponentActiveCard.name.includes("背面");
+    oppCardPanelEl.classList.toggle("is-dudu-mode", Boolean(isOppDudu));
+
+    // 若對手為嘟嘟團合體（背面），切換 is-dudu-back-mode
+    const isOppDuduBack = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("嘟嘟團合體") && opponentActiveCard.name.includes("背面");
+    oppCardPanelEl.classList.toggle("is-dudu-back-mode", Boolean(isOppDuduBack));
 
     const oppNameEl = document.querySelector("#opponentCardName");
     if (oppNameEl) {
@@ -2231,6 +2655,227 @@ function createDriverPosterElement(card) {
   return container;
 }
 
+// 嘟嘟團合體專屬卡牌面元素生成器 (名字全框、大框框嘟吧嘟按鈕、DAMAGE: 1+0 無限 無限)
+function createDuduElement(card, isInteractive, move) {
+  const container = document.createElement("div");
+  container.className = "dudu-card-container";
+
+  const members = (card && card.members) || ["李知遠", "陳子均", "盧柏睿", "江語朔"];
+  const membersHtml = members.map((m) => `<span class="dudu-member-box">${m}</span>`).join("");
+
+  const dikraVal = (card && card.dikra) || "1+0";
+
+  let btnDisabledAttr = "";
+  let btnExtraClass = "";
+  if (!isInteractive || gameOver || (move && move.cooldownRemaining > 0)) {
+    btnDisabledAttr = "disabled";
+    if (move && move.cooldownRemaining > 0) {
+      btnExtraClass += " cooling";
+    }
+  }
+
+  container.innerHTML = `
+    <div class="dudu-top-row">
+      <span class="dudu-title">${(card && card.name) || "嘟嘟團合體"}</span>
+      <span class="dudu-dikra">迪克拉：${dikraVal}</span>
+    </div>
+    <div class="dudu-members-row">
+      ${membersHtml}
+    </div>
+    <div class="dudu-big-box-wrapper">
+      <button type="button" class="dudu-big-box-btn move-button${btnExtraClass}" ${btnDisabledAttr}>
+        <span class="dudu-btn-main-text">嘟吧嘟</span>
+      </button>
+    </div>
+    <div class="dudu-bottom-section">
+      <div class="dudu-damage-label">DAMAGE：1+0</div>
+      <div class="dudu-stats-row">
+        <span class="dudu-stat-inf">無限</span>
+        <span class="dudu-stat-inf">無限</span>
+      </div>
+    </div>
+  `;
+
+  if (isInteractive && move) {
+    const btn = container.querySelector(".dudu-big-box-btn");
+    if (btn && !btn.disabled) {
+      btn.addEventListener("click", () => useMove(move));
+    }
+  }
+
+  return container;
+}
+
+// 嘟嘟團合體 (背面) PPT 完美直接移植元素生成器 (其他東西都不要，只能放簡報上有的)
+function createDuduBackElement(card, isInteractive, move) {
+  const container = document.createElement("div");
+  container.className = "dudu-back-container";
+
+  let btnDisabledAttr = "";
+  let btnExtraClass = "";
+  if (!isInteractive || gameOver || (move && move.cooldownRemaining > 0)) {
+    btnDisabledAttr = "disabled";
+    if (move && move.cooldownRemaining > 0) {
+      btnExtraClass += " cooling";
+    }
+  }
+
+  container.innerHTML = `
+    <!-- 金色光芒：旋轉聖光射線與脈動光環 -->
+    <div class="dudu-back-golden-rays" aria-hidden="true"></div>
+    <div class="dudu-back-golden-aura" aria-hidden="true"></div>
+
+    <!-- 暈邊暗角與金色光暈層 -->
+    <div class="dudu-back-vignette-overlay" aria-hidden="true"></div>
+
+    <!-- 閃亮亮光芒掃掠效果 -->
+    <div class="dudu-back-shimmer-sweep" aria-hidden="true"></div>
+
+    <!-- 閃亮亮閃爍粒子星芒 -->
+    <div class="dudu-back-sparkle sp-1" aria-hidden="true">✨</div>
+    <div class="dudu-back-sparkle sp-2" aria-hidden="true">✦</div>
+    <div class="dudu-back-sparkle sp-3" aria-hidden="true">✧</div>
+    <div class="dudu-back-sparkle sp-4" aria-hidden="true">✨</div>
+    <div class="dudu-back-sparkle sp-5" aria-hidden="true">✦</div>
+    <div class="dudu-back-sparkle sp-6" aria-hidden="true">✧</div>
+    <div class="dudu-back-sparkle sp-7" aria-hidden="true">✨</div>
+    <div class="dudu-back-sparkle sp-8" aria-hidden="true">✦</div>
+
+    <!-- 頂部標題與領域展開 -->
+    <div class="dudu-back-header">
+      <div class="dudu-back-power-title">究 極 嘟 之 力</div>
+      <div class="dudu-back-domain-subtitle">領域展開</div>
+    </div>
+
+    <!-- 兩側星星與圓弧裝飾 -->
+    <div class="dudu-back-star star-top-left">★</div>
+    <div class="dudu-back-star star-top-right">★</div>
+    <div class="dudu-back-arc-left"></div>
+    <div class="dudu-back-arc-right"></div>
+    <div class="dudu-back-star star-bot-left">★</div>
+    <div class="dudu-back-star star-bot-right">★</div>
+    <div class="dudu-back-arc-u-left"></div>
+    <div class="dudu-back-arc-u-right"></div>
+
+    <!-- 中央 3D 倒角青色大按鈕 嘟嘟 - 火車 -->
+    <div class="dudu-back-center-wrap">
+      <button type="button" class="dudu-back-bevel-btn move-button${btnExtraClass}" id="duduBackMoveBtn" ${btnDisabledAttr}>
+        <span class="dudu-back-text-left">嘟嘟</span>
+        <div class="dudu-back-train-connector">
+          <span class="dudu-back-ellipse"></span>
+          <span class="dudu-back-bar"></span>
+        </div>
+        <span class="dudu-back-text-right">火車</span>
+      </button>
+    </div>
+
+    <!-- 下方：即刻嘟死 -->
+    <div class="dudu-back-instant-kill">即刻嘟死</div>
+
+    <!-- 底部：1+0%嘟閃 -->
+    <div class="dudu-back-flash">1+0%嘟閃</div>
+  `;
+
+  if (isInteractive && move) {
+    const btn = container.querySelector(".dudu-back-bevel-btn");
+    if (btn && !btn.disabled) {
+      btn.addEventListener("click", () => useMove(move));
+    }
+  }
+
+  return container;
+}
+
+// 剪刀石頭布 (Rock-Paper-Scissors) 命運對決系統
+function triggerRockPaperScissors(attackerSide, callback) {
+  const overlay = document.querySelector("#rpsOverlay");
+  if (!overlay) {
+    const win = Math.random() < 0.5;
+    callback(win ? "player" : "opponent");
+    return;
+  }
+
+  const choicesContainer = overlay.querySelector("#rpsChoices");
+  const resultArea = overlay.querySelector("#rpsResultArea");
+  const playerHand = overlay.querySelector("#rpsPlayerHand");
+  const oppHand = overlay.querySelector("#rpsOppHand");
+  const resultMsg = overlay.querySelector("#rpsResultMsg");
+  const buttons = choicesContainer.querySelectorAll(".rps-btn");
+
+  const handIcons = {
+    rock: "✊",
+    scissors: "✌️",
+    paper: "🖐️",
+  };
+  const handNames = {
+    rock: "石頭",
+    scissors: "剪刀",
+    paper: "布",
+  };
+
+  overlay.removeAttribute("hidden");
+  overlay.hidden = false;
+  overlay.style.display = "flex";
+  resultArea.style.display = "none";
+  buttons.forEach((btn) => (btn.disabled = false));
+
+  const clickHandler = (e) => {
+    const btn = e.currentTarget;
+    const playerChoice = btn.getAttribute("data-choice");
+    buttons.forEach((b) => (b.disabled = true));
+
+    // 電腦出拳隨機決定
+    const choices = ["rock", "scissors", "paper"];
+    const oppChoice = choices[Math.floor(Math.random() * choices.length)];
+
+    resultArea.style.display = "block";
+    playerHand.textContent = handIcons[playerChoice];
+    oppHand.textContent = handIcons[oppChoice];
+
+    // 判斷勝負
+    if (playerChoice === oppChoice) {
+      resultMsg.innerHTML = `<span style="color:#fdcb6e;">🤝 平手（雙方皆出【${handNames[playerChoice]}】）！命運尚未分曉，再來一次！</span>`;
+      setTimeout(() => {
+        resultArea.style.display = "none";
+        buttons.forEach((b) => (b.disabled = false));
+      }, 1400);
+    } else if (
+      (playerChoice === "rock" && oppChoice === "scissors") ||
+      (playerChoice === "scissors" && oppChoice === "paper") ||
+      (playerChoice === "paper" && oppChoice === "rock")
+    ) {
+      resultMsg.innerHTML = `<span style="color:#2ed573;">🎉【我方獲勝！】我方【${handNames[playerChoice]}】擊敗對手【${handNames[oppChoice]}】！直接拿掉對方！</span>`;
+      triggerScreenShake();
+      cleanup();
+      setTimeout(() => {
+        overlay.hidden = true;
+        overlay.style.display = "none";
+        callback("player");
+      }, 1600);
+    } else {
+      resultMsg.innerHTML = `<span style="color:#ff4757;">💥【對手獲勝！】對手【${handNames[oppChoice]}】擊敗我方【${handNames[playerChoice]}】！對手直接拿掉我方！</span>`;
+      triggerScreenShake();
+      cleanup();
+      setTimeout(() => {
+        overlay.hidden = true;
+        overlay.style.display = "none";
+        callback("opponent");
+      }, 1600);
+    }
+  };
+
+  function cleanup() {
+    buttons.forEach((b) => {
+      b.removeEventListener("click", clickHandler);
+    });
+  }
+
+  cleanup();
+  buttons.forEach((b) => {
+    b.addEventListener("click", clickHandler);
+  });
+}
+
 function renderMoves() {
   if (!moveList) return;
 
@@ -2254,6 +2899,24 @@ function renderMoves() {
 
   moveList.innerHTML = "";
   if (secondMoveList) secondMoveList.innerHTML = "";
+
+  // 若當前卡牌為 嘟嘟團合體 (正面具有專屬全框大按鈕佈局)
+  const isDuduCard = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("嘟嘟團合體") && !activePlayerCard.name.includes("背面");
+  if (isDuduCard) {
+    const duduMove = playerMoves.find((m) => m.name && m.name.includes("嘟吧嘟")) || playerMoves[0];
+    const isInteractive = !gameOver && playerHP > 0 && currentTurn === "player" && !(playerStatus.stunned || (playerStatus.stunnedTurns && playerStatus.stunnedTurns > 0));
+    moveList.appendChild(createDuduElement(activePlayerCard, isInteractive, duduMove));
+    return;
+  }
+
+  // 若當前卡牌為 嘟嘟團合體 (背面，PPT 直接移植)
+  const isDuduBackCard = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("嘟嘟團合體") && activePlayerCard.name.includes("背面");
+  if (isDuduBackCard) {
+    const duduMove = playerMoves.find((m) => m.name && m.name.includes("嘟嘟火車")) || playerMoves[0] || { name: "嘟嘟火車", cooldownRemaining: 0 };
+    const isInteractive = !gameOver && playerHP > 0 && currentTurn === "player" && !(playerStatus.stunned || (playerStatus.stunnedTurns && playerStatus.stunnedTurns > 0));
+    moveList.appendChild(createDuduBackElement(activePlayerCard, isInteractive, duduMove));
+    return;
+  }
 
   // 若當前卡牌為 Driver團背面 (具有海報純文字裝飾)
   const isPosterCard = activePlayerCard && (activePlayerCard.hasPosterArt || (activePlayerCard.name && activePlayerCard.name.includes("Driver") && activePlayerCard.name.includes("背面")));
@@ -2306,17 +2969,17 @@ function renderMoves() {
 
     button.innerHTML = `<span>${ownerPrefix}${move.key}：${move.name}${lockTag}</span><span class="move-energy">${formatMoveMeta(move, move.ownerCard || activePlayerCard)}</span>`;
 
-    const lockRemaining = isM1 ? 0 : Math.max(move.cooldownRemaining, move.unlockRemaining);
+    const lockRemaining = Math.max(move.cooldownRemaining || 0, isM1 ? 0 : (move.unlockRemaining || 0));
 
     if (gameOver || playerHP <= 0 || currentTurn !== "player" || lockRemaining > 0 || isGeilaoLocked || isActed) {
       button.classList.add("cooling");
       button.disabled = true;
       if (isActed) {
         button.style.setProperty("--cooldown-left", "100%");
-      } else if (isGeilaoLocked || isSurvivalLocked) {
-        button.style.setProperty("--cooldown-left", "100%");
       } else if (move.cooldownRemaining > 0) {
         button.style.setProperty("--cooldown-left", `${getMoveLockPercent(move)}%`);
+      } else if (isGeilaoLocked || isSurvivalLocked) {
+        button.style.setProperty("--cooldown-left", "100%");
       } else {
         button.style.setProperty("--cooldown-left", "100%");
       }
@@ -2336,7 +2999,7 @@ function renderMoves() {
     if (isActed) return false;
     const isM1 = move.key === "M1" || move.key === "M1招" || (move.name && move.name.includes("靠近"));
     const isGeilaoLocked = isPlayerGeilao && !playerGeilaoApproached && !isM1;
-    const lockRemaining = isM1 ? 0 : Math.max(move.cooldownRemaining, move.unlockRemaining);
+    const lockRemaining = Math.max(move.cooldownRemaining || 0, isM1 ? 0 : (move.unlockRemaining || 0));
     return !lockRemaining && !isGeilaoLocked;
   });
 
@@ -2372,6 +3035,22 @@ function renderOpponentMoves() {
   opponentMoveList.innerHTML = "";
   if (opponentSecondMoveList) opponentSecondMoveList.innerHTML = "";
 
+  // 若對手當前卡牌為 嘟嘟團合體 (正面)
+  const isOppDudu = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("嘟嘟團合體") && !opponentActiveCard.name.includes("背面");
+  if (isOppDudu) {
+    const duduMove = opponentMoves.find((m) => m.name && m.name.includes("嘟吧嘟")) || opponentMoves[0];
+    opponentMoveList.appendChild(createDuduElement(opponentActiveCard, false, duduMove));
+    return;
+  }
+
+  // 若對手當前卡牌為 嘟嘟團合體 (背面)
+  const isOppDuduBack = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("嘟嘟團合體") && opponentActiveCard.name.includes("背面");
+  if (isOppDuduBack) {
+    const duduMove = opponentMoves.find((m) => m.name && m.name.includes("嘟嘟火車")) || opponentMoves[0] || { name: "嘟嘟火車", cooldownRemaining: 0 };
+    opponentMoveList.appendChild(createDuduBackElement(opponentActiveCard, false, duduMove));
+    return;
+  }
+
   const isOppGeilao = opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"));
 
   opponentMoves.forEach((move) => {
@@ -2402,7 +3081,7 @@ function renderOpponentMoves() {
 
     item.innerHTML = `<span>${ownerPrefix}${move.key}：${move.name}${lockTag}</span><span class="move-energy">${formatMoveMeta(move, move.ownerCard || opponentActiveCard)}</span>`;
 
-    const lockRemaining = isM1 ? 0 : Math.max(move.cooldownRemaining, move.unlockRemaining);
+    const lockRemaining = Math.max(move.cooldownRemaining || 0, isM1 ? 0 : (move.unlockRemaining || 0));
     if (lockRemaining > 0 || isGeilaoLocked) {
       item.classList.add("cooling");
       item.style.setProperty("--cooldown-left", `${getMoveLockPercent(move)}%`);
@@ -2439,6 +3118,12 @@ function useMove(selectedMove) {
   }
 
   const isM1Move = selectedMove.key === "M1" || selectedMove.key === "M1招" || (selectedMove.name && selectedMove.name.includes("靠近"));
+
+  // 檢查招式是否在冷卻中（任何招式包含 M1 若有冷卻局數，皆嚴格阻止施展）
+  if (selectedMove.cooldownRemaining > 0) {
+    updateTurnBadge(`⏳【${selectedMove.name}】正在冷卻中！還需 ${selectedMove.cooldownRemaining} 回合才能發動！`);
+    return;
+  }
 
   // 檢查招式是否尚未解鎖（開局或存活局數限制，M1 絕不鎖定）
   if (!isM1Move && selectedMove.unlockRemaining > 0) {
@@ -2666,6 +3351,67 @@ function executePlayerMove(selectedMove) {
     }
   }
 
+  // 檢查是否為 嘟嘟團合體 與 Driver團合體 的世紀命運對決！
+  const isPlayerDudu = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("嘟嘟團合體");
+  const isOppDriver = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("Driver") && opponentActiveCard.name.includes("合體");
+  const isPlayerDriver = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("Driver") && activePlayerCard.name.includes("合體");
+  const isOppDudu = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("嘟嘟團合體");
+
+  if ((isPlayerDudu && isOppDriver) || (isPlayerDriver && isOppDudu)) {
+    triggerRockPaperScissors("player", (rpsWinner) => {
+      selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 0;
+      selectedMove.justUsed = true;
+      if (starter === "opponent") decrementCooldowns();
+
+      if (rpsWinner === "player") {
+        updateTurnBadge(`🏆💥 命運剪刀石頭布【我方獲勝】！【${activePlayerCard.name}】猜拳擊潰對手【${opponentActiveCard.name}】！直接將對手抹殺退場！`);
+        opponentHP = 0;
+        handleOpponentCardDefeated();
+      } else {
+        updateTurnBadge(`💥 命運剪刀石頭布【對手獲勝】！對手【${opponentActiveCard.name}】猜拳擊潰我方【${activePlayerCard.name}】！直接將我方抹殺退場！`);
+        playerHP = 0;
+        handlePlayerCardDefeated();
+      }
+      renderMoves();
+      renderOpponentMoves();
+    });
+    return;
+  }
+
+  // 嘟嘟團合體 特殊機制 (傷害無限)
+  if (isPlayerDudu) {
+    damage = 999999999;
+    const isDuduTrainMove = activePlayerCard.name.includes("背面") ||
+      (selectedMove && selectedMove.name && (selectedMove.name.includes("嘟嘟火車") || selectedMove.name.includes("火車")));
+
+    if (isDuduTrainMove) {
+      playDuduTrainFlyingAnimation(false, () => {
+        updateTurnBadge("🚂💨💥💥💥【嘟嘟團合體 (背面)】爆發【究極嘟之力】！【領域展開，嘟嘟火車】！觸發 1+0% 嘟閃！【即刻嘟死】！造成無限 (999,999,999) 點毀滅傷害！");
+        applyDamage("opponent", 999999999, playerStatus, opponentStatus);
+        selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 0;
+        selectedMove.justUsed = true;
+        if (starter === "opponent") decrementCooldowns();
+        if (playerGlitchTurns > 0) {
+          playerGlitchTurns--;
+          if (playerGlitchTurns === 0) removeGlitchEffectFromTarget("player");
+        }
+        updateFieldStatusTags();
+        if (opponentHP <= 0) {
+          handleOpponentCardDefeated();
+          return;
+        }
+        currentTurn = "opponent";
+        renderMoves();
+        renderOpponentMoves();
+        setTimeout(opponentTurn, 1000);
+      });
+      return;
+    } else {
+      triggerScreenShake();
+      updateTurnBadge("🚂💨💥💥💥【嘟嘟團合體】全員合體出擊！發動【嘟吧嘟】！造成無限 (999,999,999) 點毀天滅地極致巨量傷害！");
+    }
+  }
+
   // Driver團合體 (最強團體 OP 奧義) 招式機制
   const isDriverCombo = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("Driver團合體");
   if (isDriverCombo) {
@@ -2783,18 +3529,19 @@ function executePlayerMove(selectedMove) {
       if (playerStackedCard) {
         updateTurnBadge("🐕💪🥞【林走狗】大聲吠叫！八塊腹肌Driver團長已在場疊牌共鬥！造成 500 傷害！");
       } else {
-        // 1. 若備戰區存在 Driver 團長，將其移出
-        const oppDriverIdx = opponentHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+        // 1. 若備戰區存在 Driver 團長，將其移出（嚴格排除 Driver團合體，避免誤刪合體牌）
+        const isLeaderCard = (c) => c && c.name && (c.name.includes("八塊腹肌") || c.name.includes("Driver團長") || c.name.includes("團長")) && !c.name.includes("合體");
+        const oppDriverIdx = opponentHandCards.findIndex(isLeaderCard);
         if (oppDriverIdx !== -1) {
           opponentHandCards.splice(oppDriverIdx, 1);
         }
-        const myDriverIdx = playerHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+        const myDriverIdx = playerHandCards.findIndex(isLeaderCard);
         if (myDriverIdx !== -1) {
           playerHandCards.splice(myDriverIdx, 1);
         }
 
         // 2. 若敵方場上戰鬥牌正是 Driver 團長，直接強行奪取至我方！
-        if (opponentActiveCard && (opponentActiveCard.name.includes("Driver") || opponentActiveCard.name.includes("八塊腹肌"))) {
+        if (opponentActiveCard && isLeaderCard(opponentActiveCard)) {
           opponentActiveCard = null;
           if (opponentHandCards.length > 0) {
             playOpponentNextCard();
@@ -2814,9 +3561,8 @@ function executePlayerMove(selectedMove) {
           }
         }
 
-        // 3. 取得 Driver 團長卡牌模板並實例化
-        const driverDef = defaultCards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌"))) ||
-          cards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+        // 3. 取得 Driver 團長卡牌模板並實例化（嚴格排除 Driver團合體）
+        const driverDef = defaultCards.find(isLeaderCard) || cards.find(isLeaderCard);
         if (driverDef) {
           const summonedDriver = JSON.parse(JSON.stringify(driverDef));
           summonedDriver.health = String(summonedDriver.health || "19999");
@@ -3001,9 +3747,10 @@ function opponentTurn() {
 
   const isOppGeilao = opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"));
   let availableMoves = opponentMoves.filter((m) => {
+    if (m.cooldownRemaining > 0) return false;
     const isM1 = m.key === "M1" || m.key === "M1招" || (m.name && m.name.includes("靠近"));
     if (isM1) return true;
-    return m.cooldownRemaining === 0 && m.unlockRemaining === 0;
+    return m.unlockRemaining === 0;
   });
   if (isOppGeilao && !opponentGeilaoApproached) {
     availableMoves = availableMoves.filter((m) => m.key === "M1" || m.key === "M1招" || (m.name && m.name.includes("靠近")));
@@ -3207,6 +3954,66 @@ function executeOpponentMove(move) {
       }
     }
 
+    // 檢查是否為 嘟嘟團合體 與 Driver團合體 的世紀命運對決！
+    const isOppDudu = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("嘟嘟團合體");
+    const isPlayerDriver = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("Driver") && activePlayerCard.name.includes("合體");
+    const isOppDriver = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("Driver") && opponentActiveCard.name.includes("合體");
+    const isPlayerDudu = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("嘟嘟團合體");
+
+    if ((isOppDudu && isPlayerDriver) || (isOppDriver && isPlayerDudu)) {
+      triggerRockPaperScissors("opponent", (rpsWinner) => {
+        move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 0;
+        move.justUsed = true;
+        if (starter === "player") decrementCooldowns();
+
+        if (rpsWinner === "player") {
+          updateTurnBadge(`🏆💥 命運剪刀石頭布【我方獲勝】！我方【${activePlayerCard.name}】成功反殺對手【${opponentActiveCard.name}】！直接將對手抹殺退場！`);
+          opponentHP = 0;
+          handleOpponentCardDefeated();
+        } else {
+          updateTurnBadge(`💥 命運剪刀石頭布【對手獲勝】！對手【${opponentActiveCard.name}】猜拳擊潰我方【${activePlayerCard.name}】！直接將我方抹殺退場！`);
+          playerHP = 0;
+          handlePlayerCardDefeated();
+        }
+        renderMoves();
+        renderOpponentMoves();
+      });
+      return;
+    }
+
+    // 對手 嘟嘟團合體 特殊機制 (傷害無限)
+    if (isOppDudu) {
+      damage = 999999999;
+      const isOppDuduTrainMove = opponentActiveCard.name.includes("背面") ||
+        (move && move.name && (move.name.includes("嘟嘟火車") || move.name.includes("火車")));
+
+      if (isOppDuduTrainMove) {
+        playDuduTrainFlyingAnimation(true, () => {
+          updateTurnBadge("🚂💨💥💥💥 對手【嘟嘟團合體 (背面)】爆發【究極嘟之力】！【領域展開，嘟嘟火車】！觸發 1+0% 嘟閃！【即刻嘟死】！造成無限 (999,999,999) 點毀滅傷害！");
+          applyDamage("player", 999999999, opponentStatus, playerStatus);
+          move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 0;
+          move.justUsed = true;
+          if (starter === "player") decrementCooldowns();
+          if (opponentGlitchTurns > 0) {
+            opponentGlitchTurns--;
+            if (opponentGlitchTurns === 0) removeGlitchEffectFromTarget("opponent");
+          }
+          updateFieldStatusTags();
+          if (playerHP <= 0) {
+            handlePlayerCardDefeated();
+            return;
+          }
+          currentTurn = "player";
+          renderMoves();
+          renderOpponentMoves();
+        });
+        return;
+      } else {
+        triggerScreenShake();
+        updateTurnBadge("🚂💨💥💥💥 對手【嘟嘟團合體】全員合體出擊！發動【嘟吧嘟】！造成無限 (999,999,999) 點毀天滅地極致巨量傷害！");
+      }
+    }
+
     // 電腦為 Driver團合體 (最強團體 OP 奧義) 時的招式機制
     const isOppDriverCombo = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("Driver團合體");
     if (isOppDriverCombo) {
@@ -3322,18 +4129,19 @@ function executeOpponentMove(move) {
         if (opponentStackedCard) {
           updateTurnBadge("🐕💪🥞 對手【林走狗】大聲吠叫！八塊腹肌Driver團長已在場疊牌共鬥！造成 500 傷害！");
         } else {
-          // 1. 若備戰區存在 Driver 團長，移出
-          const pDriverIdx = playerHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+          // 1. 若備戰區存在 Driver 團長，移出（嚴格排除 Driver團合體，避免誤刪合體牌）
+          const isLeaderCard = (c) => c && c.name && (c.name.includes("八塊腹肌") || c.name.includes("Driver團長") || c.name.includes("團長")) && !c.name.includes("合體");
+          const pDriverIdx = playerHandCards.findIndex(isLeaderCard);
           if (pDriverIdx !== -1) {
             playerHandCards.splice(pDriverIdx, 1);
           }
-          const oppDriverIdx = opponentHandCards.findIndex((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+          const oppDriverIdx = opponentHandCards.findIndex(isLeaderCard);
           if (oppDriverIdx !== -1) {
             opponentHandCards.splice(oppDriverIdx, 1);
           }
 
           // 2. 若我方當前戰鬥牌正是 Driver 團長，直接被敵方搶走！
-          if (activePlayerCard && (activePlayerCard.name.includes("Driver") || activePlayerCard.name.includes("八塊腹肌"))) {
+          if (activePlayerCard && isLeaderCard(activePlayerCard)) {
             activePlayerCard = null;
             if (playerHandCards.length > 0) {
               deployCard(playerHandCards[0], 0);
@@ -3352,9 +4160,8 @@ function executeOpponentMove(move) {
             }
           }
 
-          // 3. 取得 Driver 團長卡牌模板並實例化
-          const driverDef = defaultCards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌"))) ||
-            cards.find((c) => c.name && (c.name.includes("Driver") || c.name.includes("八塊腹肌")));
+          // 3. 取得 Driver 團長卡牌模板並實例化（嚴格排除 Driver團合體）
+          const driverDef = defaultCards.find(isLeaderCard) || cards.find(isLeaderCard);
           if (driverDef) {
             const summonedDriver = JSON.parse(JSON.stringify(driverDef));
             summonedDriver.health = String(summonedDriver.health || "19999");
@@ -4503,12 +5310,24 @@ function updateLivePreview() {
 
     // 若預覽目標為具有海報文字裝飾的卡牌（Driver團背面）
     const isPosterCard = Boolean(targetCard.hasPosterArt || (targetCard.name && targetCard.name.includes("Driver") && (previewShowingBack || targetCard.name.includes("背面"))));
+    const isDuduCard = Boolean(targetCard.name && targetCard.name.includes("嘟嘟團合體") && (!previewShowingBack && !targetCard.name.includes("背面")));
+    const isDuduBackCard = Boolean(targetCard.name && targetCard.name.includes("嘟嘟團合體") && (previewShowingBack || targetCard.name.includes("背面")));
     const previewCardEl = document.querySelector("#editorPreviewCard");
     if (previewCardEl) {
       previewCardEl.classList.toggle("is-poster-mode", isPosterCard);
+      previewCardEl.classList.toggle("is-dudu-mode", isDuduCard);
+      previewCardEl.classList.toggle("is-dudu-back-mode", isDuduBackCard);
     }
     if (isPosterCard) {
       previewMoveList.appendChild(createDriverPosterElement(targetCard));
+    } else if (isDuduCard) {
+      const duduMove = (targetCard.moves && targetCard.moves[0]) || { name: "嘟吧嘟", cooldownRemaining: 0 };
+      previewMoveList.appendChild(createDuduElement(targetCard, false, duduMove));
+      return;
+    } else if (isDuduBackCard) {
+      const duduMove = (targetCard.moves && targetCard.moves[0]) || { name: "嘟嘟火車", cooldownRemaining: 0 };
+      previewMoveList.appendChild(createDuduBackElement(targetCard, false, duduMove));
+      return;
     }
 
     const moves = targetCard.moves || [];

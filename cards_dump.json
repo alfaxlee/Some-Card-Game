@@ -476,5 +476,51 @@
         "cooldown": 0
       }
     ]
+  },
+  {
+    "name": "嘟嘟團合體",
+    "dikra": "1+0",
+    "chakra": "無限",
+    "health": "無限",
+    "hasEnergyMeter": false,
+    "passive": "嘟嘟團的威力：對上Driver團合體進入剪刀石頭布對決，傷害無限！",
+    "members": [
+      "李知遠",
+      "陳子均",
+      "盧柏睿",
+      "江語朔"
+    ],
+    "hasDuduLayout": true,
+    "moves": [
+      {
+        "key": "嘟吧嘟",
+        "name": "嘟吧嘟",
+        "damage": "1+0 (無限)",
+        "energy": 10,
+        "cooldown": 0,
+        "unlockAfterTurns": 0,
+        "specialMechanic": "這個卡牌只有大框框那邊可以按，傷害無限，對上Driver團合體則進入剪刀石頭布"
+      }
+    ],
+    "backCard": {
+      "name": "嘟嘟團合體 (背面)",
+      "dikra": "1+0%嘟閃",
+      "chakra": "究極嘟之力",
+      "health": "無限",
+      "hasEnergyMeter": false,
+      "passive": "究極嘟之力：領域展開，嘟嘟火車，即刻嘟死，1+0%嘟閃",
+      "hasDuduBackLayout": true,
+      "moves": [
+        {
+          "key": "領域展開",
+          "name": "嘟嘟火車",
+          "damage": "即刻嘟死",
+          "energy": 10,
+          "cooldown": 0,
+          "unlockAfterTurns": 0,
+          "specialMechanic": "究極嘟之力，領域展開，即刻嘟死，1+0%嘟閃"
+        }
+      ]
+    }
   }
 ]

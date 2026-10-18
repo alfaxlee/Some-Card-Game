@@ -431,8 +431,119 @@
       <canvas id="megaExplosionCanvas" class="mega-explosion-canvas"></canvas>
     </div>
 
-    <!-- 爆炸期間全域按鍵與點擊鎖定層（讓玩家不能按任何按鍵） -->
-    <div id="inputLockdownOverlay" class="input-lockdown-overlay" hidden aria-hidden="true"></div>
+    <!-- 剪刀石頭布 (Rock-Paper-Scissors) 命運對決彈窗 -->
+    <div id="rpsOverlay" class="rps-overlay" hidden aria-hidden="true">
+      <div class="rps-modal">
+        <div class="rps-header">
+          <h2 class="rps-title">✌️✊🖐️ 命運猜拳對決！</h2>
+          <p class="rps-subtitle">【嘟嘟團合體】⚔️【Driver團合體】正面碰撞！</p>
+          <p class="rps-desc">合體神仙大戰！雙方進入剪刀石頭布對決，勝者直接拿掉對方！</p>
+        </div>
+        <div class="rps-choices" id="rpsChoices">
+          <button type="button" class="rps-btn" data-choice="rock">
+            <span class="rps-icon">✊</span>
+            <span class="rps-label">石頭</span>
+          </button>
+          <button type="button" class="rps-btn" data-choice="scissors">
+            <span class="rps-icon">✌️</span>
+            <span class="rps-label">剪刀</span>
+          </button>
+          <button type="button" class="rps-btn" data-choice="paper">
+            <span class="rps-icon">🖐️</span>
+            <span class="rps-label">布</span>
+          </button>
+        </div>
+        <div class="rps-result-area" id="rpsResultArea" style="display:none;">
+          <div class="rps-battle-visual">
+            <div class="rps-side player-side">
+              <span class="rps-side-label">我方出招</span>
+              <span class="rps-side-hand" id="rpsPlayerHand">✊</span>
+            </div>
+            <span class="rps-vs">VS</span>
+            <div class="rps-side opp-side">
+              <span class="rps-side-label">對手出招</span>
+              <span class="rps-side-hand" id="rpsOppHand">✌️</span>
+            </div>
+          </div>
+          <p class="rps-result-msg" id="rpsResultMsg"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 嘟嘟火車：金光閃閃、#00ff00 與 #00ffff 超時空特快列車衝擊覆蓋層 -->
+    <div id="duduTrainOverlay" class="dudu-train-overlay" hidden aria-hidden="true">
+      <canvas id="duduTrainCanvas" class="dudu-train-canvas"></canvas>
+      <div id="duduTrainActor" class="dudu-train-actor">
+        <!-- 金光推進尾焰 -->
+        <div class="train-thrust-trail"></div>
+        <!-- 車廂2 (00ffff 青色車廂 + 金光) -->
+        <div class="train-coach car-cyan">
+          <div class="coach-roof"></div>
+          <div class="coach-body">
+            <span class="coach-sign">火車</span>
+            <div class="coach-window-row">
+              <span class="c-win"></span>
+              <span class="c-win"></span>
+            </div>
+          </div>
+          <div class="train-bogie">
+            <span class="b-wheel gold-sparkle"></span>
+            <span class="b-wheel green-sparkle"></span>
+          </div>
+        </div>
+        <!-- 連結器 -->
+        <div class="train-coupler"></div>
+        <!-- 車廂1 (00ff00 綠色車廂 + 金光) -->
+        <div class="train-coach car-green">
+          <div class="coach-roof"></div>
+          <div class="coach-body">
+            <span class="coach-sign">嘟嘟</span>
+            <div class="coach-window-row">
+              <span class="c-win"></span>
+              <span class="c-win"></span>
+            </div>
+          </div>
+          <div class="train-bogie">
+            <span class="b-wheel cyan-sparkle"></span>
+            <span class="b-wheel gold-sparkle"></span>
+          </div>
+        </div>
+        <!-- 連結器 -->
+        <div class="train-coupler"></div>
+        <!-- 火車頭 (金色蒸汽高科技混合機車頭 + 00ff00 & 00ffff 霓虹環) -->
+        <div class="train-locomotive">
+          <!-- 金色煙囪與噴射氣流 -->
+          <div class="loco-chimney">
+            <div class="chimney-cap"></div>
+            <div class="chimney-glow"></div>
+          </div>
+          <!-- 駕駛室 -->
+          <div class="loco-cab">
+            <div class="loco-window">★</div>
+          </div>
+          <!-- 鍋爐/發電機身 (#00ff00 與 #00ffff 核心能量管) -->
+          <div class="loco-boiler">
+            <div class="boiler-tube-green"></div>
+            <div class="boiler-tube-cyan"></div>
+            <span class="loco-title">究極嘟</span>
+          </div>
+          <!-- 巨大金色排障器/車頭錐 (Cowcatcher) -->
+          <div class="loco-cowcatcher"></div>
+          <!-- 超強力探照燈光束 (金色強光射向前方) -->
+          <div class="loco-headlight">
+            <div class="headlight-lens"></div>
+            <div class="headlight-cone"></div>
+          </div>
+          <!-- 車輪組 -->
+          <div class="loco-wheels">
+            <span class="b-wheel big-wheel gold-glow"></span>
+            <span class="b-wheel big-wheel green-glow"></span>
+            <span class="b-wheel cyan-glow"></span>
+          </div>
+        </div>
+      </div>
+      <div id="duduTrainImpactFlash" class="dudu-train-impact-flash"></div>
+    </div>
 
     <script src="script.js"></script>
 </body>
