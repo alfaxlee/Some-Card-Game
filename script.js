@@ -113,8 +113,8 @@ let opponentStackedCard = null; // 對手戰鬥牌區疊牌卡牌
 let opponentStackedHP = 0; // 對手疊牌卡牌血量
 let opponentStackedMaxHP = 0; // 對手疊牌卡牌最大血量
 let playerDualActions = { card1Done: false, card2Done: false }; // 我方雙卡同場每局各自發一招狀態
-let playerStatus = { defense: 0, damageHalf: false, stunned: false };
-let opponentStatus = { defense: 0, damageHalf: false, stunned: false };
+let playerStatus = { defense: 0, damageHalf: false, stunned: false, stunnedTurns: 0 };
+let opponentStatus = { defense: 0, damageHalf: false, stunned: false, stunnedTurns: 0 };
 let playerCardDamageMult = 1; // 當前卡牌傷害倍率 (Z/X招削弱)
 let opponentCardDamageMult = 1; // 對手當前卡牌傷害倍率 (Z/X招削弱)
 let playerGlobalDamageMult = 1; // 全局傷害倍率 (姜敦硯 V招 領域展開 1/4)
@@ -362,6 +362,83 @@ const defaultCards = [
       },
     ],
   },
+  {
+    name: "子均大爺",
+    dikra: "1+0",
+    chakra: "1+0",
+    health: "6000",
+    hasEnergyMeter: false,
+    passive: "很會嘟人",
+    moves: [
+      {
+        key: "M1",
+        name: "嘟",
+        damage: "700",
+        energy: 10,
+        cooldown: 0,
+        unlockAfterTurns: 0,
+      },
+      {
+        key: "Z",
+        name: "籃球砸你的..",
+        damage: "1500",
+        energy: 25,
+        cooldown: 2,
+        specialMechanic: "對手不發招一局",
+      },
+      {
+        key: "X",
+        name: "我要男上加男",
+        damage: "1+0",
+        cooldown: 4,
+        energy: 10,
+        specialMechanic: "目前血量*2",
+      },
+      {
+        key: "C",
+        name: "社會菁英壓力大",
+        damage: "3000",
+        cooldown: 1,
+        energy: 10,
+        specialMechanic: "給與傷害後對方血量再砍半",
+      },
+      {
+        key: "V",
+        name: "簡易嘟嘟火車",
+        damage: "100000",
+        cooldown: 1,
+        energy: 10,
+        specialMechanic: "六局後解鎖",
+        unlockAfterTurns: 5,
+      },
+    ],
+  },
+  {
+    name: "棒球小王子",
+    dikra: "(deleted)",
+    chakra: "(deleted)",
+    health: "12000",
+    hasEnergyMeter: false,
+    passive: "只會拿來合體嘟嘟團，就這樣",
+    moves: [
+      {
+        key: "M1",
+        name: "全壘打",
+        damage: "0",
+        energy: 10,
+        cooldown: 5,
+        specialMechanic: "對方不能出招四局",
+        unlockAfterTurns: 0,
+      },
+      {
+        key: "Z",
+        name: "打",
+        damage: "500",
+        energy: 25,
+        cooldown: 0,
+      },
+    ],
+  },
 ];
 
 // 規範化卡牌屬性與特殊機制解析（尊重使用者自訂內容，不隨意覆蓋）
@@ -447,7 +524,11 @@ function normalizeCard(card) {
       const isM1 = m.key === "M1" || m.key === "M1招" || (m.name && m.name.includes("靠近"));
       if (isM1) {
         m.unlockAfterTurns = 0;
-        m.cooldown = 0;
+        if (card.name && card.name.includes("棒球小王子")) {
+          m.cooldown = 5;
+        } else if (m.cooldown === undefined) {
+          m.cooldown = 0;
+        }
       }
 
       // 冷卻解析
@@ -519,6 +600,15 @@ function loadCustomCards() {
         if (driverComboSaved && driverComboDef) {
           if (!driverComboSaved.backCard || !driverComboSaved.backCard.decorativeLines || (driverComboSaved.backCard.moves && driverComboSaved.backCard.moves.length > 1)) {
             driverComboSaved.backCard = JSON.parse(JSON.stringify(driverComboDef.backCard));
+          }
+        }
+
+        // 確保棒球小王子第一招 M1 全壘打具備 5 局冷卻
+        const baseballSaved = parsed.find((c) => c && c.name && c.name.includes("棒球小王子"));
+        if (baseballSaved && Array.isArray(baseballSaved.moves)) {
+          const m1 = baseballSaved.moves.find((m) => m.key === "M1" || (m.name && m.name.includes("全壘打")));
+          if (m1) {
+            m1.cooldown = 5;
           }
         }
 
@@ -1837,7 +1927,7 @@ function flipActivePlayerCard() {
 
   const oldCard = JSON.parse(JSON.stringify(activePlayerCard));
   const newFront = JSON.parse(JSON.stringify(activePlayerCard.backCard));
-  
+
   delete oldCard.backCard;
   newFront.backCard = oldCard; // 形成循環關聯，可再次翻回
   activePlayerCard = newFront;
@@ -2085,7 +2175,9 @@ function updateFieldStatusTags() {
     if (playerCardDamageMult < 1) buffs.push(`⚠️ 傷害降至 ${(playerCardDamageMult * 100).toFixed(0)}%`);
     if (playerGlobalDamageMult < 1) buffs.push("🌌 領域壓制(傷害1/4)");
     if (isNoiseActive) buffs.push("📺 雜訊干擾");
-    if (playerStatus.stunned) buffs.push("被封鎖行動");
+    if (playerStatus.stunned || (playerStatus.stunnedTurns && playerStatus.stunnedTurns > 0)) {
+      buffs.push(playerStatus.stunnedTurns > 0 ? `被封鎖行動 (${playerStatus.stunnedTurns}局)` : "被封鎖行動");
+    }
     playerBuffTag.textContent = buffs.join(" | ");
   }
 
@@ -2096,7 +2188,9 @@ function updateFieldStatusTags() {
     if (opponentCardDamageMult < 1) buffs.push(`⚠️ 傷害降至 ${(opponentCardDamageMult * 100).toFixed(0)}%`);
     if (opponentGlobalDamageMult < 1) buffs.push("🌌 領域壓制(傷害1/4)");
     if (isNoiseActive) buffs.push("📺 雜訊干擾");
-    if (opponentStatus.stunned) buffs.push("被封鎖行動");
+    if (opponentStatus.stunned || (opponentStatus.stunnedTurns && opponentStatus.stunnedTurns > 0)) {
+      buffs.push(opponentStatus.stunnedTurns > 0 ? `被封鎖行動 (${opponentStatus.stunnedTurns}局)` : "被封鎖行動");
+    }
     opponentBuffTag.textContent = buffs.join(" | ");
   }
 
@@ -2140,11 +2234,18 @@ function createDriverPosterElement(card) {
 function renderMoves() {
   if (!moveList) return;
 
-  // 若我方被色誘封鎖，自動跳過我方回合並換對手出招，避免按鈕被鎖死無法推進
-  if (playerStatus.stunned) {
-    playerStatus.stunned = false;
+  // 若我方被封鎖，自動跳過我方回合並換對手出招，避免按鈕被鎖死無法推進
+  if (playerStatus.stunned || (playerStatus.stunnedTurns && playerStatus.stunnedTurns > 0)) {
+    if (playerStatus.stunnedTurns > 1) {
+      playerStatus.stunnedTurns--;
+      playerStatus.stunned = true;
+    } else {
+      playerStatus.stunnedTurns = 0;
+      playerStatus.stunned = false;
+    }
     updateFieldStatusTags();
-    updateTurnBadge("⚠️ 我方被色誘停止發招一局！自動跳過我方回合...");
+    const remainNotice = playerStatus.stunnedTurns > 0 ? `（還剩 ${playerStatus.stunnedTurns} 局不能出招）` : "";
+    updateTurnBadge(`⚠️ 我方被封鎖停止發招一局！${remainNotice}自動跳過我方回合...`);
     currentTurn = "opponent";
     renderOpponentMoves();
     setTimeout(opponentTurn, 1000);
@@ -2620,6 +2721,50 @@ function executePlayerMove(selectedMove) {
     }
   }
 
+  // 子均大爺 特殊招式機制 (玩家施展)
+  const isPlayerZijun = (activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("子均大爺")) ||
+    (playerStackedCard && playerStackedCard.name && playerStackedCard.name.includes("子均大爺"));
+  if (isPlayerZijun) {
+    if (selectedMove.name.includes("嘟") && !selectedMove.name.includes("火車")) {
+      triggerScreenShake();
+      updateTurnBadge(`👉【子均大爺】施展【嘟】！精準嘟人，造成 ${damage} 點傷害！`);
+    } else if (selectedMove.name.includes("籃球砸你的")) {
+      opponentStatus.stunned = true;
+      triggerScreenShake();
+      updateTurnBadge(`🏀💥【子均大爺】大力施展【籃球砸你的..】！造成 ${damage} 傷害！對手被籃球迎面暴打直接暈眩，停止發招一局！`);
+    } else if (selectedMove.name.includes("我要男上加男")) {
+      playerHP = playerHP * 2;
+      playerMaxHP = Math.max(playerMaxHP, playerHP);
+      triggerScreenShake();
+      const plyHPText = document.querySelector("#cardHealth");
+      if (plyHPText) plyHPText.textContent = playerStackedCard ? `${playerHP} (+${playerStackedHP} 疊牌)` : playerHP;
+      updateTurnBadge(`♂️🔥【子均大爺】基情大喊「我要男上加男！」全身熱血沸騰！目前血量翻倍（現為 ${playerHP} HP）！造成 ${damage} 點傷害！`);
+      updateBattleCardsVisual();
+    } else if (selectedMove.name.includes("社會菁英壓力大")) {
+      triggerScreenShake();
+      updateTurnBadge(`💼💥【子均大爺】釋放【社會菁英壓力大】！造成 ${damage} 傷害後，排山倒海的菁英壓力將對手現有血量直接砍半！`);
+    } else if (selectedMove.name.includes("簡易嘟嘟火車")) {
+      triggerScreenShake();
+      updateTurnBadge(`🚂💨💨【子均大爺】六局存活爆發！開動【簡易嘟嘟火車】！嘟嘟嘟狂暴輾壓！造成 ${damage} (100,000) 點毀天滅地極致巨量傷害！`);
+    }
+  }
+
+  // 棒球小王子 特殊招式機制 (玩家施展)
+  const isPlayerBaseball = (activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("棒球小王子")) ||
+    (playerStackedCard && playerStackedCard.name && playerStackedCard.name.includes("棒球小王子"));
+  if (isPlayerBaseball) {
+    if (selectedMove.name.includes("全壘打") || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("四局"))) {
+      selectedMove.cooldown = 5;
+      opponentStatus.stunnedTurns = 4;
+      opponentStatus.stunned = true;
+      triggerScreenShake();
+      updateTurnBadge("⚾💥💥💥【棒球小王子】揮動球棒轟出驚天【全壘打】！球直接把對手轟飛！對手陷入深度暈眩，連續四局不能出招！（剩餘 4 局，全壘打進入 5 局冷卻）");
+    } else if (selectedMove.name.includes("打")) {
+      triggerScreenShake();
+      updateTurnBadge(`⚾【棒球小王子】揮動球棒施展【打】！精準擊中對手，造成 ${damage} 點傷害！`);
+    }
+  }
+
   // 林走狗 特殊招式機制 (玩家施展)
   const isPlayerLin = (activePlayerCard && (activePlayerCard.name.includes("林走狗") || activePlayerCard.name.includes("陳豆豆"))) ||
     (playerStackedCard && (playerStackedCard.name.includes("林走狗") || playerStackedCard.name.includes("陳豆豆")));
@@ -2737,6 +2882,15 @@ function executePlayerMove(selectedMove) {
   }
 
   applyDamage("opponent", damage, playerStatus, opponentStatus);
+
+  // 子均大爺 社會菁英壓力大：傷害後對方現有血量再砍半
+  if (selectedMove.name && selectedMove.name.includes("社會菁英壓力大")) {
+    opponentHP = Math.max(1, Math.floor(opponentHP / 2));
+    const oppHPText = document.querySelector("#opponentHealth");
+    if (oppHPText) oppHPText.textContent = opponentStackedCard ? `${opponentHP} (+${opponentStackedHP} 疊牌)` : opponentHP;
+    updateBattleCardsVisual();
+  }
+
   updateFieldStatusTags();
 
   // 能量機制（包含雷切小弟弟或自訂帶有「噁心能量條」的卡牌）
@@ -2823,8 +2977,14 @@ function opponentTurn() {
   if (gameOver || opponentHP <= 0 || playerHP <= 0) return;
 
   // 檢查對手是否被封鎖
-  if (opponentStatus.stunned) {
-    opponentStatus.stunned = false; // 解除封鎖
+  if (opponentStatus.stunned || (opponentStatus.stunnedTurns && opponentStatus.stunnedTurns > 0)) {
+    if (opponentStatus.stunnedTurns > 1) {
+      opponentStatus.stunnedTurns--;
+      opponentStatus.stunned = true;
+    } else {
+      opponentStatus.stunnedTurns = 0;
+      opponentStatus.stunned = false; // 解除封鎖
+    }
     if (opponentGlitchTurns > 0) {
       opponentGlitchTurns--;
       if (opponentGlitchTurns === 0) removeGlitchEffectFromTarget("opponent");
@@ -2832,7 +2992,8 @@ function opponentTurn() {
     updateFieldStatusTags();
     if (starter === "player") decrementCooldowns();
     currentTurn = "player";
-    updateTurnBadge("對手被封鎖停止發招一局！輪到我方");
+    const remainNotice = opponentStatus.stunnedTurns > 0 ? `（對手還剩 ${opponentStatus.stunnedTurns} 局不能出招）` : "";
+    updateTurnBadge(`對手被封鎖停止發招一局！${remainNotice}輪到我方`);
     renderMoves();
     renderOpponentMoves();
     return;
@@ -3099,6 +3260,50 @@ function executeOpponentMove(move) {
       }
     }
 
+    // 電腦為 子均大爺 時的招式機制
+    const isOppZijun = (opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("子均大爺")) ||
+      (opponentStackedCard && opponentStackedCard.name && opponentStackedCard.name.includes("子均大爺"));
+    if (isOppZijun) {
+      if (move.name.includes("嘟") && !move.name.includes("火車")) {
+        triggerScreenShake();
+        updateTurnBadge(`👉 對手【子均大爺】施展【嘟】！精準嘟人，造成 ${damage} 點傷害！`);
+      } else if (move.name.includes("籃球砸你的")) {
+        playerStatus.stunned = true;
+        triggerScreenShake();
+        updateTurnBadge(`🏀💥 對手【子均大爺】大力施展【籃球砸你的..】！造成 ${damage} 傷害！我方被籃球砸中直接暈眩，停止發招一局！`);
+      } else if (move.name.includes("我要男上加男")) {
+        opponentHP = opponentHP * 2;
+        opponentMaxHP = Math.max(opponentMaxHP, opponentHP);
+        triggerScreenShake();
+        const oppHPText = document.querySelector("#opponentHealth");
+        if (oppHPText) oppHPText.textContent = opponentStackedCard ? `${opponentHP} (+${opponentStackedHP} 疊牌)` : opponentHP;
+        updateTurnBadge(`♂️🔥 對手【子均大爺】基情大喊「我要男上加男！」全身熱血沸騰！目前血量翻倍（現為 ${opponentHP} HP）！造成 ${damage} 點傷害！`);
+        updateBattleCardsVisual();
+      } else if (move.name.includes("社會菁英壓力大")) {
+        triggerScreenShake();
+        updateTurnBadge(`💼💥 對手【子均大爺】釋放【社會菁英壓力大】！造成 ${damage} 傷害後，排山倒海的菁英壓力將我方現有血量直接砍半！`);
+      } else if (move.name.includes("簡易嘟嘟火車")) {
+        triggerScreenShake();
+        updateTurnBadge(`🚂💨💨 對手【子均大爺】開動【簡易嘟嘟火車】！嘟嘟嘟狂暴輾壓！造成 ${damage} (100,000) 點毀天滅地極致巨量傷害！`);
+      }
+    }
+
+    // 電腦為 棒球小王子 時的招式機制
+    const isOppBaseball = (opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("棒球小王子")) ||
+      (opponentStackedCard && opponentStackedCard.name && opponentStackedCard.name.includes("棒球小王子"));
+    if (isOppBaseball) {
+      if (move.name.includes("全壘打") || (move.specialMechanic && move.specialMechanic.includes("四局"))) {
+        move.cooldown = 5;
+        playerStatus.stunnedTurns = 4;
+        playerStatus.stunned = true;
+        triggerScreenShake();
+        updateTurnBadge("⚾💥💥💥 對手【棒球小王子】揮動球棒轟出驚天【全壘打】！球直接把我方轟飛！我方陷入深度暈眩，連續四局不能出招！（剩餘 4 局，全壘打進入 5 局冷卻）");
+      } else if (move.name.includes("打")) {
+        triggerScreenShake();
+        updateTurnBadge(`⚾ 對手【棒球小王子】揮動球棒施展【打】！造成 ${damage} 點傷害！`);
+      }
+    }
+
     // 電腦為林走狗時的招式機制
     const isOppLin = (opponentActiveCard && (opponentActiveCard.name.includes("林走狗") || opponentActiveCard.name.includes("陳豆豆"))) ||
       (opponentStackedCard && (opponentStackedCard.name.includes("林走狗") || opponentStackedCard.name.includes("陳豆豆")));
@@ -3210,6 +3415,14 @@ function executeOpponentMove(move) {
     }
 
     applyDamage("player", damage, opponentStatus, playerStatus);
+
+    // 電腦 子均大爺 社會菁英壓力大：傷害後我方現有血量再砍半
+    if (move.name && move.name.includes("社會菁英壓力大")) {
+      playerHP = Math.max(1, Math.floor(playerHP / 2));
+      const plyHPText = document.querySelector("#cardHealth");
+      if (plyHPText) plyHPText.textContent = playerStackedCard ? `${playerHP} (+${playerStackedHP} 疊牌)` : playerHP;
+      updateBattleCardsVisual();
+    }
 
     // 電腦使用雷切小弟弟或噁心能量條機制
     const oppHasEnergy = opponentActiveCard && (opponentActiveCard.hasEnergyMeter || (move.specialMechanic && move.specialMechanic.includes("噁心能量條")));
@@ -3592,7 +3805,7 @@ function parseDamageValue(damageStr) {
         return Math.floor(val);
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   return parseInt(damageStr) || 0;
 }
