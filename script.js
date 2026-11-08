@@ -125,6 +125,8 @@ let isNoiseActive = false; // 是否處於畫面雜訊干擾中
 let opponentMovesScrambled = false; // 電腦招式排列是否被打亂
 let playerGlitchTurns = 0; // 我方卡牌與招式亂碼剩餘回合數 (一局)
 let opponentGlitchTurns = 0; // 對手卡牌與招式亂碼剩餘回合數 (一局)
+let playerDiFlashActive = false; // 大迪克背面 100% 迪閃覺醒 (全隊傷害 x1.5)
+let opponentDiFlashActive = false; // 對手大迪克背面 100% 迪閃覺醒 (全隊傷害 x1.5)
 let currentTurn = "player"; // "player" or "opponent"
 let starter = "player"; // 誰是這場戰鬥的先發
 let gameOver = false;
@@ -480,6 +482,72 @@ const defaultCards = [
       ],
     },
   },
+  {
+    name: "大迪克",
+    dikra: "0",
+    chakra: "450",
+    health: "45000",
+    hasEnergyMeter: false,
+    passive: "大迪克氣場：全隊伍傷害提升20%！大迪克在場時，隊伍所有輸出增加20%，且自身受到的傷害降低15%。",
+    moves: [
+      {
+        key: "M1",
+        name: "大迪克敲擊",
+        damage: "1500",
+        energy: 10,
+        cooldown: 0,
+        unlockAfterTurns: 0,
+        specialMechanic: "揮動巨大迪克迎頭重擊對手，造成1500點沉重打擊。",
+      },
+      {
+        key: "Z",
+        name: "大迪克壓頂",
+        damage: "5000",
+        energy: 10,
+        cooldown: 1,
+        unlockAfterTurns: 0,
+        specialMechanic: "大迪克泰山壓頂！以龐大身軀重重壓制對手，造成5000點重創，並使對手下一招傷害減半。",
+      },
+      {
+        key: "X",
+        name: "召喚gay隊友",
+        damage: "0",
+        energy: 10,
+        cooldown: 1,
+        unlockAfterTurns: 0,
+        specialMechanic: "🔒 (尚未開放) gay隊友製作中，此招暫時無效。",
+      },
+      {
+        key: "C",
+        name: "大迪克神威",
+        damage: "15000",
+        energy: 10,
+        cooldown: 3,
+        unlockAfterTurns: 3,
+        specialMechanic: "(絕招) 釋放大迪克無上神威！神聖巨光引發天地劇烈震動，造成15000點極致暴擊重創！存活3局後解鎖。",
+      },
+    ],
+    backCard: {
+      name: "大迪克 (背面)",
+      dikra: "100%迪閃",
+      chakra: "迪克拉繼承者",
+      health: "45000",
+      hasEnergyMeter: false,
+      passive: "迪克拉繼承者之力：使用後本張卡牌作廢，其他所有我方卡牌打出的傷害皆要因迪閃而x1.5！",
+      hasDadikeBackLayout: true,
+      moves: [
+        {
+          key: "迪閃",
+          name: "迪克拉繼承者之力",
+          damage: "卡牌作廢 / 全隊傷害x1.5",
+          energy: 10,
+          cooldown: 0,
+          unlockAfterTurns: 0,
+          specialMechanic: "(絕招) 上面一個圈圈裡面寫「迪」，下面寫大大的「迪克拉繼承者之力」，再下面寫「100%迪閃」！使用後本張卡牌作廢，其他所有我方卡牌打出的傷害皆要因迪閃而x1.5！",
+        },
+      ],
+    },
+  },
 ];
 
 // 規範化卡牌屬性與特殊機制解析（尊重使用者自訂內容，不隨意覆蓋）
@@ -488,6 +556,34 @@ function normalizeCard(card) {
   const isRaiche = card.name && card.name.includes("雷切小弟弟");
   if (isRaiche) {
     card.hasEnergyMeter = true;
+  }
+
+  // 大迪克機制規範化
+  if (card.name && card.name.includes("大迪克")) {
+    if (card.name.includes("背面")) {
+      card.hasDadikeBackLayout = true;
+    }
+    if (!card.passive || card.passive.includes("0%")) {
+      card.passive = "大迪克氣場：全隊伍傷害提升20%！大迪克在場時，隊伍所有輸出增加20%，且自身受到的傷害降低15%。";
+    }
+    if (Array.isArray(card.moves)) {
+      card.moves.forEach((m) => {
+        if (m.name && m.name.includes("召喚")) {
+          m.specialMechanic = "🔒 (尚未開放) gay隊友製作中，此招暫時無效。";
+          m.damage = "0";
+        } else if (m.name && m.name.includes("壓頂")) {
+          m.specialMechanic = "大迪克泰山壓頂！以龐大身軀重重壓制對手，造成5000點重創，並使對手下一招傷害減半。";
+          m.cooldown = 1;
+        } else if (m.name && m.name.includes("敲擊")) {
+          m.specialMechanic = "揮動巨大迪克迎頭重擊對手，造成1500點沉重打擊。";
+          m.cooldown = 0;
+        } else if (m.name && m.name.includes("神威")) {
+          m.specialMechanic = "(絕招) 釋放大迪克無上神威！神聖巨光引發天地劇烈震動，造成15000點極致暴擊重創！存活3局後解鎖。";
+          m.unlockAfterTurns = 3;
+          m.cooldown = 3;
+        }
+      });
+    }
   }
 
   // 陳豆豆機制修飾：尊重使用者自訂內容，絕不擅自添加生氣拳
@@ -670,6 +766,34 @@ function loadCustomCards() {
           duduSaved.hasDuduLayout = true;
           duduSaved.members = ["李知遠", "陳子均", "盧柏睿", "江語朔"];
           duduSaved.backCard = JSON.parse(JSON.stringify(duduDef.backCard));
+        }
+
+        // 大迪克機制修飾與同步（被動強化、gay隊友暫時無效化）
+        const dadikeDef = defaultCards.find((c) => c && c.name && c.name.includes("大迪克"));
+        let dadikeSaved = parsed.find((c) => c && c.name && c.name.includes("大迪克"));
+        if (!dadikeSaved && dadikeDef) {
+          parsed.push(JSON.parse(JSON.stringify(dadikeDef)));
+        } else if (dadikeSaved && dadikeDef) {
+          dadikeSaved.passive = dadikeDef.passive;
+          dadikeSaved.backCard = JSON.parse(JSON.stringify(dadikeDef.backCard));
+          if (Array.isArray(dadikeSaved.moves)) {
+            dadikeSaved.moves.forEach((m) => {
+              if (m.name && m.name.includes("召喚")) {
+                m.specialMechanic = "🔒 (尚未開放) gay隊友製作中，此招暫時無效。";
+                m.damage = "0";
+              } else if (m.name && m.name.includes("壓頂")) {
+                m.specialMechanic = "大迪克泰山壓頂！以龐大身軀重重壓制對手，造成5000點重創，並使對手下一招傷害減半。";
+                m.cooldown = 1;
+              } else if (m.name && m.name.includes("敲擊")) {
+                m.specialMechanic = "揮動巨大迪克迎頭重擊對手，造成1500點沉重打擊。";
+                m.cooldown = 0;
+              } else if (m.name && m.name.includes("神威")) {
+                m.specialMechanic = "(絕招) 釋放大迪克無上神威！神聖巨光引發天地劇烈震動，造成15000點極致暴擊重創！存活3局後解鎖。";
+                m.unlockAfterTurns = 3;
+                m.cooldown = 3;
+              }
+            });
+          }
         }
 
         localStorage.setItem("customCardLibrary", JSON.stringify(parsed));
@@ -924,13 +1048,36 @@ function triggerUltimateShoutout(moveName, onComplete) {
   titleEl.textContent = moveName;
   shoutoutOverlay.hidden = false;
   shoutoutOverlay.removeAttribute("hidden");
+  shoutoutOverlay.style.display = "flex";
   triggerScreenShake();
 
   setTimeout(() => {
     shoutoutOverlay.hidden = true;
     shoutoutOverlay.setAttribute("hidden", "");
+    shoutoutOverlay.style.display = "none";
     if (onComplete) onComplete();
   }, 1400);
+}
+
+// 領域展開 (Censored) 專屬：閃現 PH Icon 0.5 秒
+function flashPhIcon(callback) {
+  const overlay = document.querySelector("#phIconFlashOverlay");
+  if (!overlay) {
+    if (callback) callback();
+    return;
+  }
+
+  overlay.hidden = false;
+  overlay.removeAttribute("hidden");
+  overlay.style.display = "flex";
+  triggerScreenShake();
+
+  setTimeout(() => {
+    overlay.hidden = true;
+    overlay.setAttribute("hidden", "");
+    overlay.style.display = "none";
+    if (callback) callback();
+  }, 500);
 }
 
 // 雷切小弟弟 能量滿 終極領域展開全螢幕綠火閃電文字動畫
@@ -1777,6 +1924,8 @@ function startBattleSession() {
   opponentGlobalDamageMult = 1;
   playerGeilaoApproached = false;
   opponentGeilaoApproached = false;
+  playerDiFlashActive = false;
+  opponentDiFlashActive = false;
 
   if (energyFill) energyFill.style.width = "0%";
   if (energyValue) energyValue.textContent = "0%";
@@ -2001,6 +2150,11 @@ function playCard(index) {
   renderMoves();
   updateFieldStatusTags();
 
+  // 檢查是否有一方是合體牌、一方是個體牌：只要有合體牌在場，都是先讓個體牌發招！
+  if (checkAndEnforceComboCardTurnOrder()) {
+    return;
+  }
+
   // 若回合處於玩家回合，提示玩家
   if (currentTurn === "player") {
     updateTurnBadge("我方回合：請選擇技能出招");
@@ -2008,6 +2162,41 @@ function playCard(index) {
     updateTurnBadge("對手回合思考中...");
     setTimeout(opponentTurn, 1000);
   }
+}
+
+// 判定是否為合體牌（Driver團合體、嘟嘟團合體等）
+function isComboCard(card) {
+  if (!card || !card.name) return false;
+  return card.name.includes("合體") || Boolean(card.hasDuduLayout) || Boolean(card.hasDuduBackLayout) || Boolean(card.hasPosterArt) || Array.isArray(card.members);
+}
+
+// 只要有合體牌在場，都是先讓個體牌發招
+function checkAndEnforceComboCardTurnOrder() {
+  if (!activePlayerCard || !opponentActiveCard || gameOver) return false;
+  const playerIsCombo = isComboCard(activePlayerCard);
+  const oppIsCombo = isComboCard(opponentActiveCard);
+
+  if (playerIsCombo && !oppIsCombo) {
+    // 我方是合體牌，對方是個體牌 -> 必定先讓對方個體牌先攻發招！
+    starter = "opponent";
+    currentTurn = "opponent";
+    updateTurnBadge(`⚔️ 檢測到場上有合體牌【${activePlayerCard.name}】！依戰鬥規則，由個體牌【${opponentActiveCard.name}】先攻發招！`);
+    renderMoves();
+    renderOpponentMoves();
+    updateBattleCardsVisual();
+    setTimeout(opponentTurn, 1000);
+    return true;
+  } else if (!playerIsCombo && oppIsCombo) {
+    // 對方是合體牌，我方是個體牌 -> 必定先讓我方個體牌先攻發招！
+    starter = "player";
+    currentTurn = "player";
+    updateTurnBadge(`⚔️ 檢測到場上有合體牌【${opponentActiveCard.name}】！依戰鬥規則，由個體牌【${activePlayerCard.name}】先攻發招！請選擇技能出招`);
+    renderMoves();
+    renderOpponentMoves();
+    updateBattleCardsVisual();
+    return true;
+  }
+  return false;
 }
 
 function playOpponentNextCard() {
@@ -2072,6 +2261,11 @@ function playOpponentNextCard() {
   opponentMoves = createBattleMoves(opponentActiveCard);
   renderOpponentMoves();
   renderOpponentHand();
+
+  // 檢查是否有一方是合體牌、一方是個體牌：只要有合體牌在場，都是先讓個體牌發招！
+  if (checkAndEnforceComboCardTurnOrder()) {
+    return;
+  }
 
   // 隨機決定先發（若尚未決定）
   if (!starter) {
@@ -2140,7 +2334,8 @@ function createStackedBattleMoves(cardA, cardB) {
   const getShortName = (card) => {
     if (!card || !card.name) return "卡牌";
     if (card.name.includes("Driver") || card.name.includes("八塊腹肌")) return "團長";
-    if (card.name.includes("林走狗") || card.name.includes("陳豆豆")) return "走狗";
+    if (card.name.includes("陳豆豆")) return "豆豆";
+    if (card.name.includes("林走狗")) return "走狗";
     if (card.name.includes("雷切")) return "雷切";
     if (card.name.includes("給佬") || card.name.includes("姜敦硯")) return "姜敦硯";
     return card.name.slice(0, 3);
@@ -2328,6 +2523,10 @@ function flipActivePlayerCard() {
     updateTurnBadge("🚂🌟【究極嘟之力覺醒】集滿「雷切小弟弟、子均大爺、盧三角、棒球小王子」！嘟嘟團成功翻面！領域展開，嘟嘟火車！");
   } else if (isDuduCard && !isCurrentlyFront) {
     updateTurnBadge("🔄 嘟嘟團翻回正面基礎形態。");
+  } else if (activePlayerCard.name && activePlayerCard.name.includes("大迪克") && isCurrentlyFront) {
+    updateTurnBadge("⚡🌟【大迪克】覺醒翻面！顯現【迪克拉繼承者之力】！100%迪閃蓄勢待發！");
+  } else if (activePlayerCard.name && activePlayerCard.name.includes("大迪克") && !isCurrentlyFront) {
+    updateTurnBadge("🔄 大迪克翻回正面基礎形態。");
   } else {
     updateTurnBadge(`🔄 雙面卡翻轉！【${oldCard.name}】翻轉為【${activePlayerCard.name}】形態！`);
   }
@@ -2342,6 +2541,7 @@ function flipActivePlayerCard() {
   updateBattleCardsVisual();
   renderMoves();
   triggerScreenShake();
+  checkAndEnforceComboCardTurnOrder();
 }
 
 // 更新場上雙卡出戰與雙面卡視覺（獨立雙卡展示、雙面卡翻面資訊與行動狀態標籤）
@@ -2445,6 +2645,10 @@ function updateBattleCardsVisual() {
             : `🔒 翻面 (缺: ${check.missing.join("、")})`;
           btnTitle = `缺少成員：${check.missing.join("、")}`;
         }
+      } else if (activePlayerCard.name && activePlayerCard.name.includes("大迪克")) {
+        flipBtnText = isCurrentlyFront ? "⚡ 覺醒翻面 (迪克拉繼承者之力)" : "🔄 翻回大迪克正面";
+        btnClass += " flip-ready-btn";
+        btnTitle = isCurrentlyFront ? "覺醒翻面為【迪克拉繼承者之力】！100%迪閃！" : "翻回正面形態";
       }
 
       const invincibleTag = activePlayerCard.isFullyInvincible ? `<span class="invincible-badge">🛡️ 完全無敵</span>` : "";
@@ -2487,6 +2691,10 @@ function updateBattleCardsVisual() {
     // 若為嘟嘟團合體（背面），切換 is-dudu-back-mode 徹底拿掉上方框框（全PPT複製）
     const isDuduBackActive = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("嘟嘟團合體") && activePlayerCard.name.includes("背面");
     cardPanelEl.classList.toggle("is-dudu-back-mode", Boolean(isDuduBackActive));
+
+    // 若為大迪克（背面），切換 is-dadike-back-mode 專屬滿版神聖雷光樣式
+    const isDadikeBackActive = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("大迪克") && activePlayerCard.name.includes("背面");
+    cardPanelEl.classList.toggle("is-dadike-back-mode", Boolean(isDadikeBackActive));
 
     const nameEl = document.querySelector("#cardName");
     if (nameEl) {
@@ -2562,6 +2770,10 @@ function updateBattleCardsVisual() {
     const isOppDuduBack = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("嘟嘟團合體") && opponentActiveCard.name.includes("背面");
     oppCardPanelEl.classList.toggle("is-dudu-back-mode", Boolean(isOppDuduBack));
 
+    // 若對手為大迪克（背面），切換 is-dadike-back-mode
+    const isOppDadikeBack = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("大迪克") && opponentActiveCard.name.includes("背面");
+    oppCardPanelEl.classList.toggle("is-dadike-back-mode", Boolean(isOppDadikeBack));
+
     const oppNameEl = document.querySelector("#opponentCardName");
     if (oppNameEl) {
       oppNameEl.textContent = opponentActiveCard.name;
@@ -2599,6 +2811,7 @@ function updateFieldStatusTags() {
     if (playerCardDamageMult < 1) buffs.push(`⚠️ 傷害降至 ${(playerCardDamageMult * 100).toFixed(0)}%`);
     if (playerGlobalDamageMult < 1) buffs.push("🌌 領域壓制(傷害1/4)");
     if (isNoiseActive) buffs.push("📺 雜訊干擾");
+    if (playerDiFlashActive) buffs.push("⚡ 100%迪閃共鳴(傷害x1.5)");
     if (playerStatus.stunned || (playerStatus.stunnedTurns && playerStatus.stunnedTurns > 0)) {
       buffs.push(playerStatus.stunnedTurns > 0 ? `被封鎖行動 (${playerStatus.stunnedTurns}局)` : "被封鎖行動");
     }
@@ -2611,6 +2824,7 @@ function updateFieldStatusTags() {
     if (opponentStatus.damageHalf) buffs.push("⚠️ 下次傷害減半");
     if (opponentCardDamageMult < 1) buffs.push(`⚠️ 傷害降至 ${(opponentCardDamageMult * 100).toFixed(0)}%`);
     if (opponentGlobalDamageMult < 1) buffs.push("🌌 領域壓制(傷害1/4)");
+    if (opponentDiFlashActive) buffs.push("⚡ 100%迪閃共鳴(傷害x1.5)");
     if (isNoiseActive) buffs.push("📺 雜訊干擾");
     if (opponentStatus.stunned || (opponentStatus.stunnedTurns && opponentStatus.stunnedTurns > 0)) {
       buffs.push(opponentStatus.stunnedTurns > 0 ? `被封鎖行動 (${opponentStatus.stunnedTurns}局)` : "被封鎖行動");
@@ -2786,6 +3000,66 @@ function createDuduBackElement(card, isInteractive, move) {
   return container;
 }
 
+// 大迪克 (背面) 專屬佈局元素生成器 (上面圓圈迪、下面大大的迪克拉繼承者之力、再下面100%迪閃)
+function createDadikeBackElement(card, isInteractive, move) {
+  const container = document.createElement("div");
+  container.className = "dadike-back-container";
+
+  let btnDisabledAttr = "";
+  let btnExtraClass = "";
+  if (!isInteractive || gameOver || (move && move.cooldownRemaining > 0)) {
+    btnDisabledAttr = "disabled";
+    if (move && move.cooldownRemaining > 0) {
+      btnExtraClass += " cooling";
+    }
+  }
+
+  container.innerHTML = `
+    <!-- 神聖迪克拉雷電氣場與旋轉光環 -->
+    <div class="dadike-back-rays" aria-hidden="true"></div>
+    <div class="dadike-back-aura" aria-hidden="true"></div>
+    <div class="dadike-back-shimmer" aria-hidden="true"></div>
+    <div class="dadike-sparkle sp-1" aria-hidden="true">⚡</div>
+    <div class="dadike-sparkle sp-2" aria-hidden="true">✨</div>
+    <div class="dadike-sparkle sp-3" aria-hidden="true">✦</div>
+    <div class="dadike-sparkle sp-4" aria-hidden="true">⚡</div>
+
+    <!-- 大迪克背面專屬可點擊按鈕 -->
+    <button type="button" class="dadike-back-btn move-button${btnExtraClass}" ${btnDisabledAttr}>
+      <!-- 1. 上面一個圈圈裡面寫"迪" -->
+      <div class="dadike-circle-wrapper">
+        <div class="dadike-circle-ring">
+          <span class="dadike-circle-char">迪</span>
+        </div>
+      </div>
+
+      <!-- 2. 下面寫大大的"迪克拉繼承者之力" -->
+      <div class="dadike-power-title">
+        迪克拉繼承者之力
+      </div>
+
+      <!-- 3. 再下面寫"100%迪閃" -->
+      <div class="dadike-flash-subtitle">
+        ⚡ 100%迪閃 ⚡
+      </div>
+
+      <!-- 戰鬥說明提示 -->
+      <div class="dadike-desc-pill">
+        使用後本卡牌作廢・所有我方卡牌打出之傷害皆因迪閃而 ×1.5
+      </div>
+    </button>
+  `;
+
+  if (isInteractive && move) {
+    const btn = container.querySelector(".dadike-back-btn");
+    if (btn && !btn.disabled) {
+      btn.addEventListener("click", () => useMove(move));
+    }
+  }
+
+  return container;
+}
+
 // 剪刀石頭布 (Rock-Paper-Scissors) 命運對決系統
 function triggerRockPaperScissors(attackerSide, callback) {
   const overlay = document.querySelector("#rpsOverlay");
@@ -2891,6 +3165,7 @@ function renderMoves() {
     updateFieldStatusTags();
     const remainNotice = playerStatus.stunnedTurns > 0 ? `（還剩 ${playerStatus.stunnedTurns} 局不能出招）` : "";
     updateTurnBadge(`⚠️ 我方被封鎖停止發招一局！${remainNotice}自動跳過我方回合...`);
+    if (starter === "opponent") decrementCooldowns();
     currentTurn = "opponent";
     renderOpponentMoves();
     setTimeout(opponentTurn, 1000);
@@ -2918,6 +3193,15 @@ function renderMoves() {
     return;
   }
 
+  // 若當前卡牌為 大迪克 (背面，圓圈迪 + 迪克拉繼承者之力 + 100%迪閃)
+  const isDadikeBackCard = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("大迪克") && activePlayerCard.name.includes("背面");
+  if (isDadikeBackCard) {
+    const dadikeMove = playerMoves.find((m) => m.name && m.name.includes("迪克拉繼承者之力")) || playerMoves[0] || { name: "迪克拉繼承者之力", cooldownRemaining: 0 };
+    const isInteractive = !gameOver && playerHP > 0 && currentTurn === "player" && !(playerStatus.stunned || (playerStatus.stunnedTurns && playerStatus.stunnedTurns > 0));
+    moveList.appendChild(createDadikeBackElement(activePlayerCard, isInteractive, dadikeMove));
+    return;
+  }
+
   // 若當前卡牌為 Driver團背面 (具有海報純文字裝飾)
   const isPosterCard = activePlayerCard && (activePlayerCard.hasPosterArt || (activePlayerCard.name && activePlayerCard.name.includes("Driver") && activePlayerCard.name.includes("背面")));
   if (isPosterCard) {
@@ -2935,6 +3219,7 @@ function renderMoves() {
     const isM1 = move.key === "M1" || move.key === "M1招" || (move.name && move.name.includes("靠近"));
     const isGeilaoLocked = isPlayerGeilao && !playerGeilaoApproached && !isM1;
     const isSurvivalLocked = !isM1 && move.unlockRemaining > 0;
+    const isGaySummonDisabled = move.name && move.name.includes("召喚gay隊友");
 
     let isActed = false;
     let targetContainer = moveList;
@@ -2950,6 +3235,8 @@ function renderMoves() {
     let lockTag = "";
     if (isActed) {
       lockTag = ` <span class="cd-tag">✅ 本局已出招</span>`;
+    } else if (isGaySummonDisabled) {
+      lockTag = ` <span class="lock-tag">🔒 (尚未開放/無效)</span>`;
     } else if (isSurvivalLocked && isGeilaoLocked) {
       lockTag = ` <span class="lock-tag">🔒 需先出 M1（且在場存活剩餘 ${move.unlockRemaining} 局）</span>`;
     } else if (isSurvivalLocked) {
@@ -2997,6 +3284,8 @@ function renderMoves() {
       isActed = move.cardIndex === 2 ? playerDualActions.card2Done : playerDualActions.card1Done;
     }
     if (isActed) return false;
+    const isGaySummon = move.name && move.name.includes("召喚gay隊友");
+    if (isGaySummon) return false; // gay隊友尚未開放，不視為可推進之有效招式
     const isM1 = move.key === "M1" || move.key === "M1招" || (move.name && move.name.includes("靠近"));
     const isGeilaoLocked = isPlayerGeilao && !playerGeilaoApproached && !isM1;
     const lockRemaining = Math.max(move.cooldownRemaining || 0, isM1 ? 0 : (move.unlockRemaining || 0));
@@ -3051,6 +3340,14 @@ function renderOpponentMoves() {
     return;
   }
 
+  // 若對手當前卡牌為 大迪克 (背面)
+  const isOppDadikeBack = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("大迪克") && opponentActiveCard.name.includes("背面");
+  if (isOppDadikeBack) {
+    const dadikeMove = opponentMoves.find((m) => m.name && m.name.includes("迪克拉繼承者之力")) || opponentMoves[0] || { name: "迪克拉繼承者之力", cooldownRemaining: 0 };
+    opponentMoveList.appendChild(createDadikeBackElement(opponentActiveCard, false, dadikeMove));
+    return;
+  }
+
   const isOppGeilao = opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"));
 
   opponentMoves.forEach((move) => {
@@ -3060,9 +3357,12 @@ function renderOpponentMoves() {
     const isM1 = move.key === "M1" || move.key === "M1招" || (move.name && move.name.includes("靠近"));
     const isGeilaoLocked = isOppGeilao && !opponentGeilaoApproached && !isM1;
     const isSurvivalLocked = !isM1 && move.unlockRemaining > 0;
+    const isGaySummonDisabled = move.name && move.name.includes("召喚gay隊友");
 
     let lockTag = "";
-    if (isSurvivalLocked && isGeilaoLocked) {
+    if (isGaySummonDisabled) {
+      lockTag = ` <span class="lock-tag">🔒 (尚未開放/無效)</span>`;
+    } else if (isSurvivalLocked && isGeilaoLocked) {
       lockTag = ` <span class="lock-tag">🔒 需先出 M1（且在場存活剩餘 ${move.unlockRemaining} 局）</span>`;
     } else if (isSurvivalLocked) {
       lockTag = ` <span class="lock-tag">🔒 存活剩餘 ${move.unlockRemaining} 局解鎖</span>`;
@@ -3117,6 +3417,13 @@ function useMove(selectedMove) {
     }
   }
 
+  // 大迪克：召喚gay隊友 尚未做出來，設為無效
+  if (selectedMove.name && selectedMove.name.includes("召喚gay隊友")) {
+    triggerScreenShake();
+    updateTurnBadge("🔒⚠️【召喚gay隊友】目前尚未製作完成，此招暫時無效！請選擇其他招式！");
+    return;
+  }
+
   const isM1Move = selectedMove.key === "M1" || selectedMove.key === "M1招" || (selectedMove.name && selectedMove.name.includes("靠近"));
 
   // 檢查招式是否在冷卻中（任何招式包含 M1 若有冷卻局數，皆嚴格阻止施展）
@@ -3155,7 +3462,11 @@ function useMove(selectedMove) {
     return;
   }
 
-  if (hasUltimateKeyword(selectedMove)) {
+  // 雷切小弟弟的領域展開有選單，必須等在彈窗選擇發動後才出現紅色大字幕
+  const isRaicheDomainMove = activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("雷切小弟弟") &&
+    selectedMove.name && selectedMove.name.includes("領域展開");
+
+  if (hasUltimateKeyword(selectedMove) && !isRaicheDomainMove) {
     triggerUltimateShoutout(selectedMove.name, () => {
       executePlayerMove(selectedMove);
     });
@@ -3512,9 +3823,10 @@ function executePlayerMove(selectedMove) {
   }
 
   // 林走狗 特殊招式機制 (玩家施展)
-  const isPlayerLin = (activePlayerCard && (activePlayerCard.name.includes("林走狗") || activePlayerCard.name.includes("陳豆豆"))) ||
-    (playerStackedCard && (playerStackedCard.name.includes("林走狗") || playerStackedCard.name.includes("陳豆豆")));
-  if (isPlayerLin || (selectedMove.specialMechanic && (selectedMove.specialMechanic.includes("姜敦硯必殺") || selectedMove.specialMechanic.includes("Driver團長")))) {
+  const isPlayerLin = (activePlayerCard && activePlayerCard.name.includes("林走狗")) ||
+    (playerStackedCard && playerStackedCard.name.includes("林走狗"));
+  const isLinSummonMove = selectedMove.name === "召喚團長" || (selectedMove.name.includes("召喚") && selectedMove.name.includes("團長") && !selectedMove.name.includes("屌切"));
+  if (isPlayerLin || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("姜敦硯必殺")) || isLinSummonMove) {
     if (selectedMove.name === "反掰開" || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("姜敦硯必殺"))) {
       const isOppGeilao = (opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"))) ||
         (opponentStackedCard && (opponentStackedCard.name.includes("給佬") || opponentStackedCard.name.includes("姜敦硯")));
@@ -3525,7 +3837,7 @@ function executePlayerMove(selectedMove) {
       } else {
         updateTurnBadge(`🐕【林走狗】施展【反掰開】！造成 ${damage} 傷害！（對手不是姜敦硯，未觸發必殺）`);
       }
-    } else if (selectedMove.name === "召喚團長" || (selectedMove.specialMechanic && selectedMove.specialMechanic.includes("Driver團長"))) {
+    } else if (isLinSummonMove) {
       if (playerStackedCard) {
         updateTurnBadge("🐕💪🥞【林走狗】大聲吠叫！八塊腹肌Driver團長已在場疊牌共鬥！造成 500 傷害！");
       } else {
@@ -3600,6 +3912,32 @@ function executePlayerMove(selectedMove) {
     selectedMove.name === "往你嘴裡塞迪克" ||
     (selectedMove.specialMechanic && (selectedMove.specialMechanic.includes("停止") || selectedMove.specialMechanic.includes("色誘")));
 
+  // 大迪克背面：迪克拉繼承者之力 (100% 迪閃，使用後本卡牌作廢，其他所有我方卡牌打出之傷害皆因迪閃而 x1.5)
+  if (selectedMove.name && selectedMove.name.includes("迪克拉繼承者之力")) {
+    playerDiFlashActive = true;
+    triggerScreenShake();
+    updateFieldStatusTags();
+
+    updateTurnBadge("⚡🌟【大迪克 (背面)】釋放【迪克拉繼承者之力】！100%迪閃共鳴覺醒！我方所有卡牌打出之傷害永久 ×1.5！大迪克燃盡力量，本卡牌作廢！");
+
+    selectedMove.cooldownRemaining = 0;
+    selectedMove.justUsed = true;
+    if (starter === "opponent") decrementCooldowns();
+
+    // 本張卡牌作廢：生命值歸 0 退場
+    playerHP = 0;
+    const hpText = document.querySelector("#cardHealth");
+    if (hpText) hpText.textContent = "0 (已作廢)";
+
+    renderMoves();
+    updateBattleCardsVisual();
+
+    setTimeout(() => {
+      handlePlayerCardDefeated();
+    }, 1200);
+    return;
+  }
+
   if (isCharm) {
     applyDamage("opponent", damage, playerStatus, opponentStatus);
     selectedMove.cooldownRemaining = selectedMove.cooldown !== undefined ? selectedMove.cooldown : 1;
@@ -3628,6 +3966,20 @@ function executePlayerMove(selectedMove) {
   }
 
   applyDamage("opponent", damage, playerStatus, opponentStatus);
+
+  // 大迪克壓頂：對手下一招傷害減半
+  if (selectedMove.name && selectedMove.name.includes("大迪克壓頂")) {
+    opponentStatus.damageHalf = true;
+    updateFieldStatusTags();
+    triggerScreenShake();
+    updateTurnBadge(`🐘💥【大迪克】施展【大迪克壓頂】！泰山壓頂重創對手造成 ${damage} 傷害！對手下一招傷害減半！`);
+  } else if (selectedMove.name && selectedMove.name.includes("大迪克敲擊")) {
+    triggerScreenShake();
+    updateTurnBadge(`💥【大迪克】施展【大迪克敲擊】！揮動巨大迪克迎頭重擊！造成 ${damage} 點沉重打擊！`);
+  } else if (selectedMove.name && selectedMove.name.includes("大迪克神威")) {
+    triggerScreenShake();
+    updateTurnBadge(`⚡🌟【大迪克】釋放【大迪克神威】！天地劇烈震動！造成 ${damage} 點毀滅性暴擊重創！`);
+  }
 
   // 子均大爺 社會菁英壓力大：傷害後對方現有血量再砍半
   if (selectedMove.name && selectedMove.name.includes("社會菁英壓力大")) {
@@ -3747,6 +4099,7 @@ function opponentTurn() {
 
   const isOppGeilao = opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"));
   let availableMoves = opponentMoves.filter((m) => {
+    if (m.name && m.name.includes("召喚gay隊友")) return false; // gay隊友尚未開放，電腦不出此招
     if (m.cooldownRemaining > 0) return false;
     const isM1 = m.key === "M1" || m.key === "M1招" || (m.name && m.name.includes("靠近"));
     if (isM1) return true;
@@ -3761,9 +4114,17 @@ function opponentTurn() {
       opponentGlitchTurns--;
       if (opponentGlitchTurns === 0) removeGlitchEffectFromTarget("opponent");
     }
+    if (starter === "player") {
+      decrementCooldowns();
+    }
     currentTurn = "player";
-    updateTurnBadge("我方回合：請選擇技能出招");
+    playerDualActions.card1Done = false;
+    playerDualActions.card2Done = false;
+    const oppName = opponentActiveCard ? opponentActiveCard.name : "對手";
+    updateTurnBadge(`⏳ 對手【${oppName}】所有招式冷卻中，進入蓄力防守狀態！輪到我方出招！`);
     renderMoves();
+    renderOpponentMoves();
+    updateBattleCardsVisual();
     return;
   }
 
@@ -3788,7 +4149,10 @@ function opponentTurn() {
   }
 
   if (move) {
-    if (hasUltimateKeyword(move)) {
+    const isOppRaicheDomain = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("雷切小弟弟") &&
+      move.name && move.name.includes("領域展開");
+
+    if (hasUltimateKeyword(move) && !isOppRaicheDomain) {
       triggerUltimateShoutout(move.name, () => {
         executeOpponentMove(move);
       });
@@ -3800,6 +4164,19 @@ function opponentTurn() {
 
 function executeOpponentMove(move) {
   if (move) {
+    // 電腦大迪克防呆：若施展未開放之召喚gay隊友
+    if (move.name && move.name.includes("召喚gay隊友")) {
+      updateTurnBadge("🔒⚠️ 對手【大迪克】嘗試施展【召喚gay隊友】...但 gay 隊友目前尚未製作完成，召喚無效！無事發生！");
+      move.cooldownRemaining = 1;
+      move.justUsed = true;
+      if (starter === "player") decrementCooldowns();
+      currentTurn = "player";
+      renderMoves();
+      renderOpponentMoves();
+      updateBattleCardsVisual();
+      return;
+    }
+
     const isOppRaicheCard = opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("雷切小弟弟");
     const isOppGeilao = opponentActiveCard && (opponentActiveCard.name.includes("給佬") || opponentActiveCard.name.includes("姜敦硯"));
 
@@ -3807,24 +4184,36 @@ function executeOpponentMove(move) {
     if (isOppRaicheCard && move.name && move.name.includes("領域展開")) {
       const domains = ["做死", "傳說對接", "視獄偽境", "真Dixx不斷", "迪克崩壞", "(Censored)"];
       const chosenDomain = domains[Math.floor(Math.random() * domains.length)];
-      triggerScreenShake();
-      updateTurnBadge(`🌌 對手【雷切小弟弟】展開領域【${chosenDomain}】！直接將我方瞬間湮滅！`);
-      applyDamage("player", 999999999, opponentStatus, playerStatus);
-      move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 2;
-      move.justUsed = true;
-      if (starter === "player") decrementCooldowns();
-      if (opponentGlitchTurns > 0) {
-        opponentGlitchTurns--;
-        if (opponentGlitchTurns === 0) removeGlitchEffectFromTarget("opponent");
+      const isCensored = chosenDomain.toLowerCase().includes("censored");
+
+      const proceedOppDomain = () => {
+        triggerUltimateShoutout(`領域展開：${chosenDomain}`, () => {
+          triggerScreenShake();
+          updateTurnBadge(`🌌 對手【雷切小弟弟】展開領域【${chosenDomain}】！直接將我方瞬間湮滅！`);
+          applyDamage("player", 999999999, opponentStatus, playerStatus);
+          move.cooldownRemaining = move.cooldown !== undefined ? move.cooldown : 2;
+          move.justUsed = true;
+          if (starter === "player") decrementCooldowns();
+          if (opponentGlitchTurns > 0) {
+            opponentGlitchTurns--;
+            if (opponentGlitchTurns === 0) removeGlitchEffectFromTarget("opponent");
+          }
+          updateFieldStatusTags();
+          if (playerHP <= 0) {
+            handlePlayerCardDefeated();
+            return;
+          }
+          currentTurn = "player";
+          renderMoves();
+          renderOpponentMoves();
+        });
+      };
+
+      if (isCensored) {
+        flashPhIcon(proceedOppDomain);
+      } else {
+        proceedOppDomain();
       }
-      updateFieldStatusTags();
-      if (playerHP <= 0) {
-        handlePlayerCardDefeated();
-        return;
-      }
-      currentTurn = "player";
-      renderMoves();
-      renderOpponentMoves();
       return;
     }
 
@@ -4112,9 +4501,10 @@ function executeOpponentMove(move) {
     }
 
     // 電腦為林走狗時的招式機制
-    const isOppLin = (opponentActiveCard && (opponentActiveCard.name.includes("林走狗") || opponentActiveCard.name.includes("陳豆豆"))) ||
-      (opponentStackedCard && (opponentStackedCard.name.includes("林走狗") || opponentStackedCard.name.includes("陳豆豆")));
-    if (isOppLin || (move.specialMechanic && (move.specialMechanic.includes("姜敦硯必殺") || move.specialMechanic.includes("Driver團長")))) {
+    const isOppLin = (opponentActiveCard && opponentActiveCard.name.includes("林走狗")) ||
+      (opponentStackedCard && opponentStackedCard.name.includes("林走狗"));
+    const isOppLinSummonMove = move.name === "召喚團長" || (move.name.includes("召喚") && move.name.includes("團長") && !move.name.includes("屌切"));
+    if (isOppLin || (move.specialMechanic && move.specialMechanic.includes("姜敦硯必殺")) || isOppLinSummonMove) {
       if (move.name === "反掰開" || (move.specialMechanic && move.specialMechanic.includes("姜敦硯必殺"))) {
         const isTargetGeilao = (activePlayerCard && (activePlayerCard.name.includes("給佬") || activePlayerCard.name.includes("姜敦硯"))) ||
           (playerStackedCard && (playerStackedCard.name.includes("給佬") || playerStackedCard.name.includes("姜敦硯")));
@@ -4125,7 +4515,7 @@ function executeOpponentMove(move) {
         } else {
           updateTurnBadge(`🐕 對手【林走狗】施展【反掰開】！造成 ${damage} 傷害！（可惜我方不是姜敦硯，未觸發必殺）`);
         }
-      } else if (move.name === "召喚團長" || (move.specialMechanic && move.specialMechanic.includes("Driver團長"))) {
+      } else if (isOppLinSummonMove) {
         if (opponentStackedCard) {
           updateTurnBadge("🐕💪🥞 對手【林走狗】大聲吠叫！八塊腹肌Driver團長已在場疊牌共鬥！造成 500 傷害！");
         } else {
@@ -4222,6 +4612,42 @@ function executeOpponentMove(move) {
     }
 
     applyDamage("player", damage, opponentStatus, playerStatus);
+
+    // 電腦使用大迪克招式
+    if (move.name && move.name.includes("大迪克壓頂")) {
+      playerStatus.damageHalf = true;
+      updateFieldStatusTags();
+      triggerScreenShake();
+      updateTurnBadge(`🐘💥 對手【大迪克】施展【大迪克壓頂】！泰山壓頂重創我方造成 ${damage} 傷害！我方下一招傷害減半！`);
+    } else if (move.name && move.name.includes("大迪克敲擊")) {
+      triggerScreenShake();
+      updateTurnBadge(`💥 對手【大迪克】施展【大迪克敲擊】！揮動巨大迪克重擊！造成 ${damage} 點沉重打擊！`);
+    } else if (move.name && move.name.includes("大迪克神威")) {
+      triggerScreenShake();
+      updateTurnBadge(`⚡🌟 對手【大迪克】釋放【大迪克神威】！天地劇烈震動！造成 ${damage} 點毀滅性暴擊重創！`);
+    } else if (move.name && move.name.includes("迪克拉繼承者之力")) {
+      opponentDiFlashActive = true;
+      triggerScreenShake();
+      updateFieldStatusTags();
+
+      updateTurnBadge("⚡🌟 對手【大迪克 (背面)】釋放【迪克拉繼承者之力】！100%迪閃共鳴覺醒！對手所有卡牌打出之傷害永久 ×1.5！對手大迪克燃盡力量作廢退場！");
+
+      move.cooldownRemaining = 0;
+      move.justUsed = true;
+      if (starter === "player") decrementCooldowns();
+
+      opponentHP = 0;
+      const oppHpText = document.querySelector("#opponentHealth");
+      if (oppHpText) oppHpText.textContent = "0 (已作廢)";
+
+      renderOpponentMoves();
+      updateBattleCardsVisual();
+
+      setTimeout(() => {
+        handleOpponentCardDefeated();
+      }, 1200);
+      return;
+    }
 
     // 電腦 子均大爺 社會菁英壓力大：傷害後我方現有血量再砍半
     if (move.name && move.name.includes("社會菁英壓力大")) {
@@ -4443,13 +4869,17 @@ if (domainSelectModal) {
       const domainMove = pendingDomainMove;
       pendingDomainMove = null;
 
-      triggerUltimateShoutout(`領域展開：${chosenDomain}`, () => {
-        const targetCardEl = document.querySelector("#opponentCardPanel");
-        playMegaGreenExplosion(targetCardEl, () => {
+      const isCensored = chosenDomain.toLowerCase().includes("censored");
+
+      const executeDomainAttack = () => {
+        // 發動後才出現霸氣清晰紅色大字幕
+        triggerUltimateShoutout(`領域展開：${chosenDomain}`, () => {
+          triggerScreenShake();
           updateTurnBadge(`🌌【雷切小弟弟】展開領域【${chosenDomain}】！時空湮滅，直接將對手瞬間抹殺！`);
           applyDamage("opponent", 999999999999999999, playerStatus, opponentStatus);
 
           domainMove.cooldownRemaining = domainMove.cooldown !== undefined ? domainMove.cooldown : 3;
+          domainMove.justUsed = true;
 
           if (starter === "opponent") decrementCooldowns();
           if (playerGlitchTurns > 0) {
@@ -4469,7 +4899,14 @@ if (domainSelectModal) {
           renderOpponentMoves();
           setTimeout(opponentTurn, 1000);
         });
-      });
+      };
+
+      // 當選擇 (Censored) 時，畫面閃現 PH Icon.jpg 0.5 秒
+      if (isCensored) {
+        flashPhIcon(executeDomainAttack);
+      } else {
+        executeDomainAttack();
+      }
     });
   });
 }
@@ -4650,6 +5087,42 @@ function applyDamage(target, amount, attackerStatus, defenderStatus) {
   } else {
     // 對手攻擊玩家
     finalDamage = Math.floor(finalDamage * opponentCardDamageMult * opponentGlobalDamageMult);
+  }
+
+  // 大迪克被動技能：大迪克氣場（全隊伍輸出提升20%，自身受到傷害降低15%）
+  if (target === "opponent") {
+    const isPlayerDadike = (activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("大迪克")) ||
+                           (playerStackedCard && playerStackedCard.name && playerStackedCard.name.includes("大迪克"));
+    if (isPlayerDadike) {
+      finalDamage = Math.floor(finalDamage * 1.2);
+    }
+    const isOppDadike = (opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("大迪克")) ||
+                        (opponentStackedCard && opponentStackedCard.name && opponentStackedCard.name.includes("大迪克"));
+    if (isOppDadike) {
+      finalDamage = Math.floor(finalDamage * 0.85);
+    }
+  } else {
+    const isOppDadike = (opponentActiveCard && opponentActiveCard.name && opponentActiveCard.name.includes("大迪克")) ||
+                        (opponentStackedCard && opponentStackedCard.name && opponentStackedCard.name.includes("大迪克"));
+    if (isOppDadike) {
+      finalDamage = Math.floor(finalDamage * 1.2);
+    }
+    const isPlayerDadike = (activePlayerCard && activePlayerCard.name && activePlayerCard.name.includes("大迪克")) ||
+                           (playerStackedCard && playerStackedCard.name && playerStackedCard.name.includes("大迪克"));
+    if (isPlayerDadike) {
+      finalDamage = Math.floor(finalDamage * 0.85);
+    }
+  }
+
+  // 迪克拉繼承者之力：100% 迪閃共鳴（其他所有我方卡牌打出的傷害皆因迪閃而 x1.5）
+  if (target === "opponent") {
+    if (playerDiFlashActive) {
+      finalDamage = Math.floor(finalDamage * 1.5);
+    }
+  } else {
+    if (opponentDiFlashActive) {
+      finalDamage = Math.floor(finalDamage * 1.5);
+    }
   }
 
   // 檢查減半效果
@@ -5312,11 +5785,13 @@ function updateLivePreview() {
     const isPosterCard = Boolean(targetCard.hasPosterArt || (targetCard.name && targetCard.name.includes("Driver") && (previewShowingBack || targetCard.name.includes("背面"))));
     const isDuduCard = Boolean(targetCard.name && targetCard.name.includes("嘟嘟團合體") && (!previewShowingBack && !targetCard.name.includes("背面")));
     const isDuduBackCard = Boolean(targetCard.name && targetCard.name.includes("嘟嘟團合體") && (previewShowingBack || targetCard.name.includes("背面")));
+    const isDadikeBackCard = Boolean(targetCard.name && targetCard.name.includes("大迪克") && (previewShowingBack || targetCard.name.includes("背面")));
     const previewCardEl = document.querySelector("#editorPreviewCard");
     if (previewCardEl) {
       previewCardEl.classList.toggle("is-poster-mode", isPosterCard);
       previewCardEl.classList.toggle("is-dudu-mode", isDuduCard);
       previewCardEl.classList.toggle("is-dudu-back-mode", isDuduBackCard);
+      previewCardEl.classList.toggle("is-dadike-back-mode", isDadikeBackCard);
     }
     if (isPosterCard) {
       previewMoveList.appendChild(createDriverPosterElement(targetCard));
@@ -5327,6 +5802,10 @@ function updateLivePreview() {
     } else if (isDuduBackCard) {
       const duduMove = (targetCard.moves && targetCard.moves[0]) || { name: "嘟嘟火車", cooldownRemaining: 0 };
       previewMoveList.appendChild(createDuduBackElement(targetCard, false, duduMove));
+      return;
+    } else if (isDadikeBackCard) {
+      const dadikeMove = (targetCard.moves && targetCard.moves[0]) || { name: "迪克拉繼承者之力", cooldownRemaining: 0 };
+      previewMoveList.appendChild(createDadikeBackElement(targetCard, false, dadikeMove));
       return;
     }
 

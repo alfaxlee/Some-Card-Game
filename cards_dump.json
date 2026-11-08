@@ -522,5 +522,71 @@
         }
       ]
     }
+  },
+  {
+    "name": "大迪克",
+    "dikra": "0",
+    "chakra": "450",
+    "health": "45000",
+    "hasEnergyMeter": false,
+    "passive": "大迪克氣場：全隊伍傷害提升20%！大迪克在場時，隊伍所有輸出增加20%，且自身受到的傷害降低15%。",
+    "moves": [
+      {
+        "key": "M1",
+        "name": "大迪克敲擊",
+        "damage": "1500",
+        "energy": 10,
+        "cooldown": 0,
+        "unlockAfterTurns": 0,
+        "specialMechanic": "揮動巨大迪克迎頭重擊對手，造成1500點沉重打擊。"
+      },
+      {
+        "key": "Z",
+        "name": "大迪克壓頂",
+        "damage": "5000",
+        "energy": 10,
+        "cooldown": 1,
+        "unlockAfterTurns": 0,
+        "specialMechanic": "大迪克泰山壓頂！以龐大身軀重重壓制對手，造成5000點重創，並使對手下一招傷害減半。"
+      },
+      {
+        "key": "X",
+        "name": "召喚gay隊友",
+        "damage": "0",
+        "energy": 10,
+        "cooldown": 1,
+        "unlockAfterTurns": 0,
+        "specialMechanic": "🔒 (尚未開放) gay隊友製作中，此招暫時無效。"
+      },
+      {
+        "key": "C",
+        "name": "大迪克神威",
+        "damage": "15000",
+        "energy": 10,
+        "cooldown": 3,
+        "unlockAfterTurns": 3,
+        "specialMechanic": "(絕招) 釋放大迪克無上神威！神聖巨光引發天地劇烈震動，造成15000點極致暴擊重創！存活3局後解鎖。"
+      }
+    ],
+    "backCard": {
+      "name": "大迪克 (背面)",
+      "dikra": "100%迪閃",
+      "chakra": "迪克拉繼承者",
+      "health": "45000",
+      "hasEnergyMeter": false,
+      "passive": "迪克拉繼承者之力：使用後本張卡牌作廢，其他所有我方卡牌打出的傷害皆要因迪閃而x1.5！",
+      "hasDadikeBackLayout": true,
+      "moves": [
+        {
+          "key": "迪閃",
+          "name": "迪克拉繼承者之力",
+          "damage": "卡牌作廢 / 全隊傷害x1.5",
+          "energy": 10,
+          "cooldown": 0,
+          "unlockAfterTurns": 0,
+          "specialMechanic": "(絕招) 上面一個圈圈裡面寫「迪」，下面寫大大的「迪克拉繼承者之力」，再下面寫「100%迪閃」！使用後本張卡牌作廢，其他所有我方卡牌打出的傷害皆要因迪閃而x1.5！"
+        }
+      ]
+    }
   }
 ]
